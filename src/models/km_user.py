@@ -42,7 +42,7 @@ class Role(Model, _ModelBaseAccess, _ModelBaseBody):
         return self.name
 
 class Category(Model, _ModelBaseAccess, _ModelBaseBody):
-    # party = fields.ForeignKeyField("models.Party", related_names="categorys")
+    party = fields.ForeignKeyField("models.Party", related_names="categorys")
     files = fields.ManyToManyField("models.File", through="_rel_file_category")
     permissions: fields.ManyToManyRelation["Permission"]
     def __str__(self):
@@ -63,7 +63,7 @@ class File(Model, _ModelBaseAccess):
         return self.name
 
 class Party(Model, _ModelBaseAccess):
-    # categorys: fields.ReverseRelation["Category"]
+    categorys: fields.ReverseRelation["Category"]
     users = fields.ManyToManyField("models.User", through="_rel_party_user")
     def __str__(self):
         return self.name
