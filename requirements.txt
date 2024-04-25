@@ -1,0 +1,10 @@
+pytz==2024.1
+pyreadline3==3.4.1
+tqdm==4.66.2
+flask_cors===4.0.0
+mysql-connector-python==8.3.0
+pymysql==1.1.0
+dbutils==3.1.0
+tortoise-orm==0.20.0
+asyncmy==0.2.9
+aerich==0.7.2
