@@ -15,7 +15,7 @@ python3 main_uvicorn.py
 
 ## Debug
 
-Run/Debug using VSCode (already attached launch.com)
+Run/Debug using VSCode (already attached `.vscode/launch.json`)
 
 
 ## New db
