@@ -12,9 +12,9 @@ async def create_entry_file(
   uploadFileRecord: UploadFileRecord = None,
 ):
   new_entry = await File.create(
-    filename = uploadFileRecord.file.filename,
-    mime_type = uploadFileRecord.file.content_type,
-    size_bytes = uploadFileRecord.file.file_size,
+    filename = uploadFileRecord.filename,
+    mime_type = uploadFileRecord.mimetype,
+    size_bytes = uploadFileRecord.filesize,
   )
 
   return new_entry

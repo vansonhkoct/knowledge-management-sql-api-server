@@ -11,3 +11,6 @@ aerich==0.7.2
 fastapi==0.110.3
 python-multipart==0.0.9
 uvicorn[standard]==0.29.0
+pytest==8.2.0
+asgi_lifespan==2.1.0
+httpx==0.27.0

@@ -43,7 +43,13 @@ class Role(Model, _ModelBaseAccess, _ModelBaseBody):
 
 class Category(Model, _ModelBaseAccess, _ModelBaseBody):
     party = fields.ForeignKeyField("models.Party", related_names="categorys")
-    files = fields.ManyToManyField("models.File", through="_rel_file_category")
+    parent_category = fields.ForeignKeyField("models.Category", related_names="categorys", null=True)
+
+    files: fields.ReverseRelation["File"]
+    sub_categorys: fields.ReverseRelation["Category"]
+
+    folderpath_relative = fields.CharField(max_length=512, default="")
+    folderpath_absolute = fields.CharField(max_length=5120, null=True)
     permissions: fields.ManyToManyRelation["Permission"]
     def __str__(self):
         return self.name
@@ -55,7 +61,9 @@ class Permission(Model, _ModelBaseAccess, _ModelBaseBody):
         return self.name
 
 class File(Model, _ModelBaseAccess):
-    categorys: fields.ManyToManyRelation["Category"]
+    category = fields.ForeignKeyField("models.Category", related_names="files", null=True)
+    party = fields.ForeignKeyField("models.Party", related_names="files", null=True)
+
     filename = fields.CharField(max_length=5120, null=True)
     mime_type = fields.CharField(max_length=64, null=True)
     size_bytes = fields.IntField(null=True)
@@ -64,6 +72,8 @@ class File(Model, _ModelBaseAccess):
 
 class Party(Model, _ModelBaseAccess):
     categorys: fields.ReverseRelation["Category"]
+    files: fields.ReverseRelation["File"]
+
     users = fields.ManyToManyField("models.User", through="_rel_party_user")
     def __str__(self):
         return self.name

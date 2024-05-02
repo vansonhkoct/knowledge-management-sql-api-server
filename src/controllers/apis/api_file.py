@@ -1,4 +1,5 @@
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, UploadFile, Form, Request
+from typing import Annotated
 
 import sys
 import os
@@ -12,20 +13,30 @@ from controllers.functions.file.file import create_entry_file
 router = APIRouter(prefix="/api/v1")
 
 
-@router.post("/files/")
-async def upload_and_create_file(file: UploadFile = File(...)):
+@router.post("/files/upload")
+async def upload_and_create(
+  request: Request,
+  category_id: Annotated[str, Form()] = None,
+  # file: UploadFile = File(...),
+  file: UploadFile = File(),
+):
+    headers = request.headers
+  
     # Save the uploaded file to the local "./upload" folder
-    file_ref = upload_file_write_to_upload_folder(
+    file_ref = await upload_file_write_to_upload_folder(
       file=file,
     )
     
-    file_entry = create_entry_file(
+    file_entry = await create_entry_file(
       uploadFileRecord = file_ref,
     )
     
     return {
       "success": True,
       "message": "C_F001",
-      "data": file_entry,
+      "data": {
+        "item": file_entry,
+        "c": category_id,
+      },
     }
 

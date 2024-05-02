@@ -5,11 +5,16 @@ parent_dir = os.path.dirname(os.path.realpath(__file__))
 default_upload_dir = parent_dir + "/../../../../upload/"
 
 class UploadFileRecord:
-  file: UploadFile
-  filepath: str
+    def __init__(self, file: UploadFile, filepath: str):
+        self.file = file
+        self.filepath = filepath
+        self.filesize = file.size
+        self.filename = file.filename,
+        self.mimetype = file.content_type,
+        print(file.filename, self.filename)
 
-  def __str__(self):
-      return self.name
+    # def __str__(self):
+    #   return self.filename
 
 
 async def upload_file_write_to_upload_folder(
