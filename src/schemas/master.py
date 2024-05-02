@@ -48,6 +48,7 @@ class Category(Model, _ModelBaseAccess, _ModelBaseBody):
     files: fields.ReverseRelation["File"]
     sub_categorys: fields.ReverseRelation["Category"]
 
+    alias = fields.CharField(max_length=512, null=True)
     folderpath_relative = fields.CharField(max_length=512, default="")
     folderpath_absolute = fields.CharField(max_length=5120, null=True)
     permissions: fields.ManyToManyRelation["Permission"]
@@ -64,7 +65,8 @@ class File(Model, _ModelBaseAccess):
     category = fields.ForeignKeyField("models.Category", related_names="files", null=True)
     party = fields.ForeignKeyField("models.Party", related_names="files", null=True)
 
-    filename = fields.CharField(max_length=5120, null=True)
+    alias = fields.CharField(max_length=512, null=True)
+    filename = fields.CharField(max_length=255, null=True)
     mime_type = fields.CharField(max_length=64, null=True)
     size_bytes = fields.IntField(null=True)
     def __str__(self):

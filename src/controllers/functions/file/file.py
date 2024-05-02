@@ -10,11 +10,14 @@ from models.master import File
 
 async def create_entry_file(
   uploadFileRecord: UploadFileRecord = None,
+  category_id: str = None,
 ):
   new_entry = await File.create(
+    alias = uploadFileRecord.alias,
     filename = uploadFileRecord.filename,
     mime_type = uploadFileRecord.mimetype,
     size_bytes = uploadFileRecord.filesize,
+    category_id = category_id,
   )
 
   return new_entry
