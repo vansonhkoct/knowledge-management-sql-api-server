@@ -13,7 +13,7 @@ from controllers.functions.file.file import create_entry_file
 router = APIRouter(prefix="/api/v1")
 
 
-@router.post("/files/upload")
+@router.post("/file/upload")
 async def upload_and_create(
   request: Request,
   category_id: Annotated[str, Form()] = None,

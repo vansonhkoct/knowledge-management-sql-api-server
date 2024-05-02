@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS `category` (
     `folderpath_relative` VARCHAR(512) NOT NULL  DEFAULT '',
     `folderpath_absolute` VARCHAR(5120),
     `parent_category_id` CHAR(36),
-    `party_id` CHAR(36) NOT NULL,
+    `party_id` CHAR(36),
     CONSTRAINT `fk_category_category_7a83aeb4` FOREIGN KEY (`parent_category_id`) REFERENCES `category` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_category_party_969fb2db` FOREIGN KEY (`party_id`) REFERENCES `party` (`id`) ON DELETE CASCADE,
     KEY `idx_category_is_disa_488bff` (`is_disabled`),
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS `chat` (
     `name` VARCHAR(255) NOT NULL  DEFAULT '',
     `desc` LONGTEXT,
     `prompt_prefix` VARCHAR(2048) NOT NULL  DEFAULT '',
-    `categorys_id` CHAR(36) NOT NULL,
+    `categorys_id` CHAR(36),
     CONSTRAINT `fk_chat_category_7b94d315` FOREIGN KEY (`categorys_id`) REFERENCES `category` (`id`) ON DELETE CASCADE,
     KEY `idx_chat_is_disa_1107c3` (`is_disabled`),
     KEY `idx_chat_is_dele_2df0a7` (`is_deleted`)
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS `user` (
     `short_name` VARCHAR(256),
     `phone_code` VARCHAR(24),
     `phone_number` VARCHAR(256),
-    `role_id` CHAR(36) NOT NULL,
+    `role_id` CHAR(36),
     CONSTRAINT `fk_user_role_68c1d370` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE,
     KEY `idx_user_is_disa_8f0eb2` (`is_disabled`),
     KEY `idx_user_is_dele_0c3788` (`is_deleted`),
@@ -124,8 +124,8 @@ CREATE TABLE IF NOT EXISTS `chatmessage` (
     `desc` LONGTEXT,
     `body` LONGTEXT,
     `body_json` JSON,
-    `chat_id` CHAR(36) NOT NULL,
-    `user_id` CHAR(36) NOT NULL,
+    `chat_id` CHAR(36),
+    `user_id` CHAR(36),
     CONSTRAINT `fk_chatmess_chat_d3f20855` FOREIGN KEY (`chat_id`) REFERENCES `chat` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_chatmess_user_59c92346` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
     KEY `idx_chatmessage_is_disa_0939fb` (`is_disabled`),
@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS `chatmessagefeedback` (
     `score` INT,
     `is_like` BOOL NOT NULL  DEFAULT 0,
     `is_dislike` BOOL NOT NULL  DEFAULT 0,
-    `chatmessage_id` CHAR(36) NOT NULL,
+    `chatmessage_id` CHAR(36),
     CONSTRAINT `fk_chatmess_chatmess_feecb67f` FOREIGN KEY (`chatmessage_id`) REFERENCES `chatmessage` (`id`) ON DELETE CASCADE,
     KEY `idx_chatmessage_is_disa_44836c` (`is_disabled`),
     KEY `idx_chatmessage_is_dele_59b181` (`is_deleted`)
@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS `usercredential` (
     `status` VARCHAR(10),
     `username` VARCHAR(256),
     `password_hash` VARCHAR(256),
-    `user_id` CHAR(36) NOT NULL,
+    `user_id` CHAR(36),
     CONSTRAINT `fk_usercred_user_c6044dc7` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
     KEY `idx_usercredent_is_disa_ff4411` (`is_disabled`),
     KEY `idx_usercredent_is_dele_2413cc` (`is_deleted`),
@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS `userrequest` (
     `status` VARCHAR(10),
     `token` VARCHAR(256),
     `code` VARCHAR(256),
-    `user_id` CHAR(36) NOT NULL,
+    `user_id` CHAR(36),
     CONSTRAINT `fk_userrequ_user_b1ae691d` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
     KEY `idx_userrequest_is_disa_3f92b9` (`is_disabled`),
     KEY `idx_userrequest_is_dele_298701` (`is_deleted`),
@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS `usersession` (
     `access_token` VARCHAR(256),
     `refresh_token` VARCHAR(256),
     `issued_at` DATETIME(6),
-    `user_id` CHAR(36) NOT NULL,
+    `user_id` CHAR(36),
     CONSTRAINT `fk_usersess_user_bfd95be4` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
     KEY `idx_usersession_is_disa_13f338` (`is_disabled`),
     KEY `idx_usersession_is_dele_1c589c` (`is_deleted`),
@@ -223,17 +223,17 @@ CREATE TABLE IF NOT EXISTS `_rel_party_user` (
     FOREIGN KEY (`party_id`) REFERENCES `party` (`id`) ON DELETE CASCADE,
     FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4;
-CREATE TABLE IF NOT EXISTS `_rel_role_permission` (
-    `permission_id` CHAR(36) NOT NULL,
-    `role_id` CHAR(36) NOT NULL,
-    FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE CASCADE,
-    FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE
-) CHARACTER SET utf8mb4;
 CREATE TABLE IF NOT EXISTS `_rel_permission_category` (
     `permission_id` CHAR(36) NOT NULL,
     `category_id` CHAR(36) NOT NULL,
     FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE CASCADE,
     FOREIGN KEY (`category_id`) REFERENCES `category` (`id`) ON DELETE CASCADE
+) CHARACTER SET utf8mb4;
+CREATE TABLE IF NOT EXISTS `_rel_role_permission` (
+    `permission_id` CHAR(36) NOT NULL,
+    `role_id` CHAR(36) NOT NULL,
+    FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4;"""
 
 

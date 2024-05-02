@@ -37,11 +37,13 @@ register_tortoise(
 
 
 from controllers.apis.api_file import router as router_file
-from controllers.apis.api_health import router as router_health
-
-
 app.include_router(router = router_file)
+
+from controllers.apis.api_health import router as router_health
 app.include_router(router = router_health)
+
+from controllers.apis.api_category import router as router_category
+app.include_router(router = router_category)
 
 
 

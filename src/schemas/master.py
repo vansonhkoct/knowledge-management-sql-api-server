@@ -42,7 +42,7 @@ class Role(Model, _ModelBaseAccess, _ModelBaseBody):
         return self.name
 
 class Category(Model, _ModelBaseAccess, _ModelBaseBody):
-    party = fields.ForeignKeyField("models.Party", related_names="categorys")
+    party = fields.ForeignKeyField("models.Party", related_names="categorys", null=True)
     parent_category = fields.ForeignKeyField("models.Category", related_names="categorys", null=True)
 
     files: fields.ReverseRelation["File"]
@@ -55,8 +55,8 @@ class Category(Model, _ModelBaseAccess, _ModelBaseBody):
         return self.name
 
 class Permission(Model, _ModelBaseAccess, _ModelBaseBody):
-    roles = fields.ManyToManyField("models.Role", through="_rel_role_permission")
-    categorys = fields.ManyToManyField("models.Category", through="_rel_permission_category")
+    roles = fields.ManyToManyField("models.Role", through="_rel_role_permission", null=True)
+    categorys = fields.ManyToManyField("models.Category", through="_rel_permission_category", null=True)
     def __str__(self):
         return self.name
 
@@ -74,12 +74,12 @@ class Party(Model, _ModelBaseAccess):
     categorys: fields.ReverseRelation["Category"]
     files: fields.ReverseRelation["File"]
 
-    users = fields.ManyToManyField("models.User", through="_rel_party_user")
+    users = fields.ManyToManyField("models.User", through="_rel_party_user", null=True)
     def __str__(self):
         return self.name
 
 class User(Model, _ModelBaseAccess, _ModelBaseBody):
-    role = fields.ForeignKeyField("models.Role", related_name="users")
+    role = fields.ForeignKeyField("models.Role", related_name="users", null=True)
     partys: fields.ManyToManyRelation["Party"]
     userCredentials: fields.ReverseRelation["UserCredential"]
     userSessions: fields.ReverseRelation["UserSession"]
@@ -92,7 +92,7 @@ class User(Model, _ModelBaseAccess, _ModelBaseBody):
         return self.name
 
 class UserCredential(Model, _ModelBaseAccess):
-    user = fields.ForeignKeyField("models.User", related_name="userCredentials")
+    user = fields.ForeignKeyField("models.User", related_name="userCredentials", null=True)
     credential_type = fields.CharEnumField(enum_type=UserCredentialType, index=True)
     status = fields.CharField(max_length=10, index=True, null=True)
     username = fields.CharField(max_length=256, index=True, null=True)
@@ -101,7 +101,7 @@ class UserCredential(Model, _ModelBaseAccess):
         return self.name
 
 class UserSession(Model, _ModelBaseAccess):
-    user = fields.ForeignKeyField("models.User", related_name="userSessions")
+    user = fields.ForeignKeyField("models.User", related_name="userSessions", null=True)
     access_token = fields.CharField(max_length=256, index=True, null=True)
     refresh_token = fields.CharField(max_length=256, index=True, null=True)
     issued_at = fields.DatetimeField(null=True)
@@ -109,7 +109,7 @@ class UserSession(Model, _ModelBaseAccess):
         return self.name
 
 class UserRequest(Model, _ModelBaseAccess, _ModelBaseBody):
-    user = fields.ForeignKeyField("models.User", related_name="userRequests")
+    user = fields.ForeignKeyField("models.User", related_name="userRequests", null=True)
     request_type = fields.CharEnumField(enum_type=UserRequestType, index=True, null=True)
     status = fields.CharField(max_length=10, index=True, null=True)
     token = fields.CharField(max_length=256, index=True, null=True)
@@ -118,21 +118,21 @@ class UserRequest(Model, _ModelBaseAccess, _ModelBaseBody):
         return self.name
 
 class Chat(Model, _ModelBaseAccess):
-    categorys = fields.ForeignKeyField("models.Category", related_name="chats")
+    categorys = fields.ForeignKeyField("models.Category", related_name="chats", null=True)
     chatmessages: fields.ReverseRelation["ChatMessage"]
     prompt_prefix = fields.CharField(max_length=2048, default="")
     def __str__(self):
         return self.name
 
 class ChatMessage(Model, _ModelBaseAccess, _ModelBaseBody):
-    chat = fields.ForeignKeyField("models.Chat", related_name="chatMessages")
-    user = fields.ForeignKeyField("models.User", related_name="chatMessages")
+    chat = fields.ForeignKeyField("models.Chat", related_name="chatMessages", null=True)
+    user = fields.ForeignKeyField("models.User", related_name="chatMessages", null=True)
     chatmessagefeedbacks: fields.ReverseRelation["ChatMessageFeedback"]
     def __str__(self):
         return self.name
 
 class ChatMessageFeedback(Model, _ModelBaseAccess, _ModelBaseBody):
-    chatmessage = fields.ForeignKeyField("models.ChatMessage", related_name="chatMessageFeedbacks")
+    chatmessage = fields.ForeignKeyField("models.ChatMessage", related_name="chatMessageFeedbacks", null=True)
     score = fields.IntField(null=True)
     is_like = fields.BooleanField(default=False)
     is_dislike = fields.BooleanField(default=False)
