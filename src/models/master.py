@@ -1,3 +1,5 @@
+from tortoise.contrib.pydantic import pydantic_model_creator
+
 import sys
 import os
 
@@ -6,8 +8,7 @@ parent_dir = os.path.dirname(os.path.realpath(__file__))
 
 # Add the parent directory to sys.path
 sys.path.append(parent_dir + "/../")
-
-from tortoise.contrib.pydantic import pydantic_model_creator
+# print(sys.path)
 
 from schemas.master import *
 
