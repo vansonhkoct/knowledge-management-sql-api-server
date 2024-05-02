@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS `category` (
     `desc` LONGTEXT,
     `body` LONGTEXT,
     `body_json` JSON,
+    `alias` VARCHAR(512),
     `folderpath_relative` VARCHAR(512) NOT NULL  DEFAULT '',
     `folderpath_absolute` VARCHAR(5120),
     `parent_category_id` CHAR(36),
@@ -55,7 +56,8 @@ CREATE TABLE IF NOT EXISTS `file` (
     `modified_at` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     `name` VARCHAR(255) NOT NULL  DEFAULT '',
     `desc` LONGTEXT,
-    `filename` VARCHAR(5120),
+    `alias` VARCHAR(512),
+    `filename` VARCHAR(255),
     `mime_type` VARCHAR(64),
     `size_bytes` INT,
     `category_id` CHAR(36),
@@ -75,8 +77,10 @@ CREATE TABLE IF NOT EXISTS `permission` (
     `desc` LONGTEXT,
     `body` LONGTEXT,
     `body_json` JSON,
+    `code` VARCHAR(64),
     KEY `idx_permission_is_disa_6f3608` (`is_disabled`),
-    KEY `idx_permission_is_dele_02b890` (`is_deleted`)
+    KEY `idx_permission_is_dele_02b890` (`is_deleted`),
+    KEY `idx_permission_code_ff773d` (`code`)
 ) CHARACTER SET utf8mb4;
 CREATE TABLE IF NOT EXISTS `role` (
     `id` CHAR(36) NOT NULL  PRIMARY KEY,
@@ -88,8 +92,12 @@ CREATE TABLE IF NOT EXISTS `role` (
     `desc` LONGTEXT,
     `body` LONGTEXT,
     `body_json` JSON,
+    `code` VARCHAR(64),
+    `party_id` CHAR(36),
+    CONSTRAINT `fk_role_party_65d52346` FOREIGN KEY (`party_id`) REFERENCES `party` (`id`) ON DELETE CASCADE,
     KEY `idx_role_is_disa_faae6d` (`is_disabled`),
-    KEY `idx_role_is_dele_bb0fba` (`is_deleted`)
+    KEY `idx_role_is_dele_bb0fba` (`is_deleted`),
+    KEY `idx_role_code_604657` (`code`)
 ) CHARACTER SET utf8mb4;
 CREATE TABLE IF NOT EXISTS `user` (
     `id` CHAR(36) NOT NULL  PRIMARY KEY,
@@ -105,7 +113,9 @@ CREATE TABLE IF NOT EXISTS `user` (
     `short_name` VARCHAR(256),
     `phone_code` VARCHAR(24),
     `phone_number` VARCHAR(256),
+    `party_id` CHAR(36),
     `role_id` CHAR(36),
+    CONSTRAINT `fk_user_party_20545c7b` FOREIGN KEY (`party_id`) REFERENCES `party` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_user_role_68c1d370` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE,
     KEY `idx_user_is_disa_8f0eb2` (`is_disabled`),
     KEY `idx_user_is_dele_0c3788` (`is_deleted`),
@@ -217,23 +227,17 @@ CREATE TABLE IF NOT EXISTS `aerich` (
     `app` VARCHAR(100) NOT NULL,
     `content` JSON NOT NULL
 ) CHARACTER SET utf8mb4;
-CREATE TABLE IF NOT EXISTS `_rel_party_user` (
-    `party_id` CHAR(36) NOT NULL,
-    `user_id` CHAR(36) NOT NULL,
-    FOREIGN KEY (`party_id`) REFERENCES `party` (`id`) ON DELETE CASCADE,
-    FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
-) CHARACTER SET utf8mb4;
-CREATE TABLE IF NOT EXISTS `_rel_permission_category` (
-    `permission_id` CHAR(36) NOT NULL,
-    `category_id` CHAR(36) NOT NULL,
-    FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE CASCADE,
-    FOREIGN KEY (`category_id`) REFERENCES `category` (`id`) ON DELETE CASCADE
-) CHARACTER SET utf8mb4;
 CREATE TABLE IF NOT EXISTS `_rel_role_permission` (
     `permission_id` CHAR(36) NOT NULL,
     `role_id` CHAR(36) NOT NULL,
     FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE CASCADE,
     FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE
+) CHARACTER SET utf8mb4;
+CREATE TABLE IF NOT EXISTS `_rel_user_accessible_category` (
+    `user_id` CHAR(36) NOT NULL,
+    `category_id` CHAR(36) NOT NULL,
+    FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`category_id`) REFERENCES `category` (`id`) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4;"""
 
 

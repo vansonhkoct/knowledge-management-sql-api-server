@@ -45,5 +45,24 @@ app.include_router(router = router_health)
 from controllers.apis.api_category import router as router_category
 app.include_router(router = router_category)
 
+from controllers.apis.api_user import router as router_user
+app.include_router(router = router_user)
+
+from controllers.apis.api_role import router as router_role
+app.include_router(router = router_role)
+
+from controllers.apis.api_permission import router as router_permission
+app.include_router(router = router_permission)
+
+from controllers.apis.api_party import router as router_party
+app.include_router(router = router_party)
+
+from controllers.apis.api_party import router as router_party
+app.include_router(router = router_party)
+
+from controllers.apis.api_auth import router as router_auth
+app.include_router(router = router_auth)
+
+
 
 

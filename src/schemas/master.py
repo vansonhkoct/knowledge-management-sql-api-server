@@ -36,6 +36,8 @@ class _ModelBaseBody:
 
 
 class Role(Model, _ModelBaseAccess, _ModelBaseBody):
+    party = fields.ForeignKeyField("models.Party", related_names="roles", null=True)
+    code = fields.CharField(max_length=64, null=True, index=True)
     permissions: fields.ManyToManyRelation["Permission"]
     users: fields.ReverseRelation["User"]
     def __str__(self):
@@ -47,17 +49,19 @@ class Category(Model, _ModelBaseAccess, _ModelBaseBody):
 
     files: fields.ReverseRelation["File"]
     sub_categorys: fields.ReverseRelation["Category"]
+    
+    accessible_users: fields.ManyToManyRelation["Permission"]
 
     alias = fields.CharField(max_length=512, null=True)
     folderpath_relative = fields.CharField(max_length=512, default="")
     folderpath_absolute = fields.CharField(max_length=5120, null=True)
-    permissions: fields.ManyToManyRelation["Permission"]
+
     def __str__(self):
         return self.name
 
 class Permission(Model, _ModelBaseAccess, _ModelBaseBody):
+    code = fields.CharField(max_length=64, null=True, index=True)
     roles = fields.ManyToManyField("models.Role", through="_rel_role_permission", null=True)
-    categorys = fields.ManyToManyField("models.Category", through="_rel_permission_category", null=True)
     def __str__(self):
         return self.name
 
@@ -74,18 +78,22 @@ class File(Model, _ModelBaseAccess):
 
 class Party(Model, _ModelBaseAccess):
     categorys: fields.ReverseRelation["Category"]
+    roles: fields.ReverseRelation["Role"]
     files: fields.ReverseRelation["File"]
+    users: fields.ReverseRelation["User"]
 
-    users = fields.ManyToManyField("models.User", through="_rel_party_user", null=True)
     def __str__(self):
         return self.name
 
 class User(Model, _ModelBaseAccess, _ModelBaseBody):
     role = fields.ForeignKeyField("models.Role", related_name="users", null=True)
-    partys: fields.ManyToManyRelation["Party"]
+    party = fields.ForeignKeyField("models.Party", related_name="users", null=True)
     userCredentials: fields.ReverseRelation["UserCredential"]
     userSessions: fields.ReverseRelation["UserSession"]
     userRequests: fields.ReverseRelation["UserRequest"]
+    
+    userAccessibleCategorys = fields.ManyToManyField("models.Category", through="_rel_user_accessible_category", null=True)
+
     email = fields.CharField(512, index=True, null=True)
     short_name = fields.CharField(256, index=True, null=True)
     phone_code = fields.CharField(24, index=True, null=True)

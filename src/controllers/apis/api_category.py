@@ -21,6 +21,10 @@ router = APIRouter(prefix="/api/v1")
 from models.master import Category, KMCategory
 
 
+TAG_C001 = "C_CATEGORY001"
+TAG_E001 = "E_CATEGORY001"
+
+
 @router.get("/category")
 async def fetch(
   request: Request,
@@ -67,7 +71,7 @@ async def fetch(
 
     return {
       "success": True,
-      "message": "C_CATEGORY001",
+      "message": TAG_C001,
       "data": {
         "filters": filters,
         "sql": tsql,
@@ -85,7 +89,7 @@ async def fetch(
     raise HTTPException(
       status_code=500,
       detail={
-        "message": "E_CATEGORY001",
+        "message": TAG_E001,
         "error": str(e),
         "stacktrace": stacktrace,
       }
@@ -116,7 +120,7 @@ async def fetchSingle(
 
     return {
       "success": True,
-      "message": "C_CATEGORY001",
+      "message": TAG_C001,
       "data": item,
     }
   
@@ -125,7 +129,7 @@ async def fetchSingle(
     raise HTTPException(
       status_code=500,
       detail={
-        "message": "E_CATEGORY001",
+        "message": TAG_E001,
         "error": str(e),
         "stacktrace": stacktrace,
       }
@@ -158,7 +162,7 @@ async def create(
 
     return {
       "success": True,
-      "message": "C_CATEGORY001",
+      "message": TAG_C001,
       "data": {
         "item": item,
       },
@@ -169,7 +173,7 @@ async def create(
     raise HTTPException(
       status_code=500,
       detail={
-        "message": "E_CATEGORY001",
+        "message": TAG_E001,
         "error": str(e),
         "stacktrace": stacktrace,
       }
@@ -197,7 +201,7 @@ async def remove(
     
     return {
       "success": True,
-      "message": "C_CATEGORY001",
+      "message": TAG_C001,
       "data": {
         "item": item,
       },
@@ -209,7 +213,7 @@ async def remove(
     raise HTTPException(
       status_code=500,
       detail={
-        "message": "E_CATEGORY001",
+        "message": TAG_E001,
         "error": str(e),
         "stacktrace": stacktrace,
       }
@@ -248,7 +252,7 @@ async def update(
     
     return {
       "success": True,
-      "message": "C_CATEGORY001",
+      "message": TAG_C001,
       "data": {
         "item": item,
       },
@@ -260,7 +264,7 @@ async def update(
     raise HTTPException(
       status_code=500,
       detail={
-        "message": "E_CATEGORY001",
+        "message": TAG_E001,
         "error": str(e),
         "stacktrace": stacktrace,
       }
@@ -290,7 +294,7 @@ async def update(
     
 #     return {
 #       "success": True,
-#       "message": "C_CATEGORY001",
+#       "message": TAG_C001,
 #       "data": {
 #         "item": file_entry,
 #         "c": category_id,

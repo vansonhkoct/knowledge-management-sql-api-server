@@ -40,7 +40,7 @@ async def upload_and_create(
       alias=alias,
     )
     
-    file_entry = await create_entry_file(
+    item = await create_entry_file(
       uploadFileRecord = file_ref,
       category_id=category_id,
     )
@@ -49,7 +49,7 @@ async def upload_and_create(
       "success": True,
       "message": TAG_C001,
       "data": {
-        "item": file_entry,
+        "item": item,
       },
     }
 
