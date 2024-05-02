@@ -22,7 +22,7 @@ async def obtain_user_by_user_access_token(
     item = await UserSession.filter(**{
       "access_token": access_token,
     }).prefetch_related("user").first()
-
+    await item.user.fetch_related("role__permissions")
     return item.user if item != None else None
 
   except Exception as e:

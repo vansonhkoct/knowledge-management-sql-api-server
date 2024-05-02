@@ -3,6 +3,7 @@ from fastapi import APIRouter, File, UploadFile, Form, Request
 from fastapi import HTTPException
 from typing import Annotated
 from tortoise.expressions import Q
+from tortoise.contrib.pydantic import pydantic_model_creator
 
 import sys
 import os
@@ -15,7 +16,7 @@ from controllers.functions.user.userauth_session import fetch_loggedin_user_info
 
 router = APIRouter(prefix="/api/v1")
 
-from models.master import User, Role, Permission, UserCredential, UserCredentialType
+from models.master import KMUser, User, Role, Permission, UserCredential, UserCredentialType
 
 
 TAG_C001 = "C_USER001"
@@ -29,14 +30,28 @@ async def user_me(
   request: Request,
 ):
   headers = request.headers
-  user = await fetch_loggedin_user_info(headers=headers)
+  user, access_token = await fetch_loggedin_user_info(headers=headers)
+
+  # KMUser = pydantic_model_creator(
+  #   User, 
+  #   name="user", 
+  #   # exclude=[
+  #   #   "userCredentials",
+  #   #   "userRequests",
+  #   #   "userSessions",
+  #   #   "party.roles",
+  #   #   "chatMessages",
+  #   # ]
+  # )
+  
+  item = await KMUser.from_tortoise_orm(user)
 
   try:
     return {
       "success": True,
       "message": TAG_C001,
       "data": {
-        "item": user,
+        "item": item,
       }
     }
 

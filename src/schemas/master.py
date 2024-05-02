@@ -43,6 +43,11 @@ class Role(Model, _ModelBaseAccess, _ModelBaseBody):
     def __str__(self):
         return self.name
 
+    class PydanticMeta:
+        exclude = (
+            "party",
+        )
+
 class Category(Model, _ModelBaseAccess, _ModelBaseBody):
     party = fields.ForeignKeyField("models.Party", related_names="categorys", null=True)
     parent_category = fields.ForeignKeyField("models.Category", related_names="categorys", null=True)
@@ -84,6 +89,13 @@ class Party(Model, _ModelBaseAccess):
 
     def __str__(self):
         return self.name
+    
+    class PydanticMeta:
+        exclude = (
+            "categorys",
+            "users",
+            "files",
+        )
 
 class User(Model, _ModelBaseAccess, _ModelBaseBody):
     role = fields.ForeignKeyField("models.Role", related_name="users", null=True)
@@ -98,8 +110,18 @@ class User(Model, _ModelBaseAccess, _ModelBaseBody):
     short_name = fields.CharField(256, index=True, null=True)
     phone_code = fields.CharField(24, index=True, null=True)
     phone_number = fields.CharField(256, index=True, null=True)
+
     def __str__(self):
         return self.name
+    
+    class PydanticMeta:
+        exclude = (
+            "userCredentials",
+            "userRequests",
+            "userSessions",
+            "party.roles",
+            "chatMessages",
+        )
 
 class UserCredential(Model, _ModelBaseAccess):
     user = fields.ForeignKeyField("models.User", related_name="userCredentials", null=True)
