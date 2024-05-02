@@ -18,7 +18,7 @@ class UserRequestType(Enum):
 
 
 class _ModelBaseAccess:
-    _id = fields.UUIDField(pk=True)
+    id = fields.UUIDField(pk=True)
     is_disabled = fields.BooleanField(index=True, default=0)
     is_deleted = fields.BooleanField(index=True, default=0)
     created_at = fields.DatetimeField(auto_now_add=True)

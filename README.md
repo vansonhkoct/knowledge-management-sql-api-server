@@ -1,0 +1,4 @@
+```
+aerich migrate
+aerich upgrade
+```
