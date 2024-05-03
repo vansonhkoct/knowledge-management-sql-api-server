@@ -67,3 +67,13 @@ def makeSafeFilename(original_filename):
   
   return f"{object_id}_{filename}"
 
+
+
+def getStaticFilesBaseUrl():
+  return "http://localhost:17891/static/"
+
+
+def getUploadFilesBaseUrl():
+  return "http://localhost:17891/upload/"
+
+

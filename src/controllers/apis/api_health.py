@@ -11,6 +11,7 @@ parent_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(parent_dir + "/../../")
 
 from controllers.functions._generic.serverutils import get_memory_usage, get_cpu_usage, get_disk_usage
+from controllers.functions._generic.fileutils import getStaticFilesBaseUrl, getUploadFilesBaseUrl
 
 router = APIRouter(prefix="/api/v1")
 
@@ -29,6 +30,8 @@ async def get_health(
         "memory": get_memory_usage(),
         "cpy": get_cpu_usage(),
         "disk": get_disk_usage(),
+        "staticFilesBaseUrl": getStaticFilesBaseUrl(),
+        "uploadFilesBaseUrl": getUploadFilesBaseUrl(),
       },
     }
 

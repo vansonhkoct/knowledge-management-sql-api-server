@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from tortoise.contrib.fastapi import register_tortoise
 from contextlib import asynccontextmanager
 
@@ -25,6 +27,25 @@ dbConfig["apps"]["models"]["models"] = [
 dbConfig["apps"]["models"]["default_connection"] = "default"
 
 app = FastAPI()
+
+app.add_middleware(
+  CORSMiddleware,
+  allow_origins=["*"],
+  allow_methods=["*"],
+  allow_headers=["*"],
+)
+
+# Mount the static files directory
+try:
+  app.mount("/static", StaticFiles(directory="../static"), name="static")
+except:
+  pass
+
+# Mount the upload files directory
+try:
+  app.mount("/upload", StaticFiles(directory="./upload"), name="upload")
+except:
+  pass
 
 
 register_tortoise(

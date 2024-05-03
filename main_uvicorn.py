@@ -6,7 +6,7 @@ if __name__ == '__main__':
 
   uvicorn.run(
     "src.main:app", 
-    port=6601, 
+    port=17891, 
     reload=True, 
     access_log=False,
   )

@@ -151,11 +151,11 @@ async def create(
     payload = {}
     
     if "parent_category_id" in data:
-      payload.parent_category_id = data["parent_category_id"]
+      payload["parent_category_id"] = data["parent_category_id"]
 
     if "alias" in data:
-      payload.alias = data["alias"]
-      payload.folderpath_absolute = None
+      payload["alias"] = data["alias"]
+      payload["folderpath_absolute"] = None
 
 
     item = await Category.create(**payload)

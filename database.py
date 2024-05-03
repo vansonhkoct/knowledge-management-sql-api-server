@@ -1,6 +1,6 @@
 TORTOISE_ORM = {
   "connections": {
-      "default": "mysql://root:password@192.168.2.107:16884/ai_knowledge_base_rag_db_2",
+      "default": "mysql://root:password@octopus-tech.com:16884/ai_knowledge_base_rag_db_2",
   },
   "apps": {
       "models": {
