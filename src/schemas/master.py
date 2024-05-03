@@ -39,6 +39,7 @@ class Role(Model, _ModelBaseAccess, _ModelBaseBody):
     party = fields.ForeignKeyField("models.Party", related_names="roles", null=True)
     code = fields.CharField(max_length=64, null=True, index=True)
     permissions: fields.ManyToManyRelation["Permission"]
+    accessible_categorys = fields.ManyToManyField("models.Category", through="_rel_role_accessible_category", null=True)
     users: fields.ReverseRelation["User"]
     def __str__(self):
         return self.name
@@ -55,7 +56,7 @@ class Category(Model, _ModelBaseAccess, _ModelBaseBody):
     files: fields.ReverseRelation["File"]
     sub_categorys: fields.ReverseRelation["Category"]
     
-    accessible_users: fields.ManyToManyRelation["Permission"]
+    accessible_roles: fields.ManyToManyRelation["Role"]
 
     alias = fields.CharField(max_length=512, null=True)
     folderpath_relative = fields.CharField(max_length=512, default="")
@@ -104,8 +105,6 @@ class User(Model, _ModelBaseAccess, _ModelBaseBody):
     userSessions: fields.ReverseRelation["UserSession"]
     userRequests: fields.ReverseRelation["UserRequest"]
     
-    userAccessibleCategorys = fields.ManyToManyField("models.Category", through="_rel_user_accessible_category", null=True)
-
     email = fields.CharField(512, index=True, null=True)
     short_name = fields.CharField(256, index=True, null=True)
     phone_code = fields.CharField(24, index=True, null=True)

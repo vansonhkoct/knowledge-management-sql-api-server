@@ -233,10 +233,10 @@ CREATE TABLE IF NOT EXISTS `_rel_role_permission` (
     FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE CASCADE,
     FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4;
-CREATE TABLE IF NOT EXISTS `_rel_user_accessible_category` (
-    `user_id` CHAR(36) NOT NULL,
+CREATE TABLE IF NOT EXISTS `_rel_role_accessible_category` (
+    `role_id` CHAR(36) NOT NULL,
     `category_id` CHAR(36) NOT NULL,
-    FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE,
     FOREIGN KEY (`category_id`) REFERENCES `category` (`id`) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4;"""
 
