@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS `file` (
     `filename` VARCHAR(255),
     `mime_type` VARCHAR(64),
     `size_bytes` INT,
+    `es_doc_ids` LONGTEXT,
     `category_id` CHAR(36),
     `party_id` CHAR(36),
     CONSTRAINT `fk_file_category_015c50a5` FOREIGN KEY (`category_id`) REFERENCES `category` (`id`) ON DELETE CASCADE,

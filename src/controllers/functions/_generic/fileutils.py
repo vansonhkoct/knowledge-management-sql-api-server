@@ -26,8 +26,10 @@ async def upload_file_write_to_upload_folder(
   filename = makeSafeFilename(file.filename)
   filepath = f"{default_upload_dir}{filename}"
 
+  filebytes = await file.read()
+
   with open(filepath, "wb") as f:
-      f.write(await file.read())
+      f.write(filebytes)
 
   upload_file_record = UploadFileRecord(
     alias= alias if alias != None else file.filename,
@@ -37,7 +39,22 @@ async def upload_file_write_to_upload_folder(
     mimetype = str(file.content_type) if file.content_type != None else None
   )
 
-  return upload_file_record
+  return upload_file_record, filebytes
+
+
+
+async def remove_file_from_upload_folder(
+  filename: str,
+):
+  filepath = f"{default_upload_dir}{filename}"
+
+  try:
+    # Remove the file from the upload folder
+    os.remove(filepath)
+  except OSError as e:
+    raise e
+
+  return True
 
 
 

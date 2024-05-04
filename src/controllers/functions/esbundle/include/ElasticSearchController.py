@@ -1,5 +1,5 @@
 
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, logger, logging
 from langchain.vectorstores import ElasticsearchStore
 from langchain.vectorstores import ElasticKnnSearch
 from langchain.document_loaders import TextLoader
@@ -10,6 +10,8 @@ from .ConfigParams import ConfigParams
 from .DocumentUtils import DocumentUtils
 from .ElasticSearchQueryUtils import ElasticSearchQueryUtils
 
+es_logger = logger
+es_logger.setLevel(logging.DEBUG)
 
 class ElasticSearchController:
     def __init__(self, embedding):
@@ -28,8 +30,17 @@ class ElasticSearchController:
         self.embedding = embedding
         
 
+    def doc_insert_index(self, index_name):
+        return self.es_client.indices.create(index=index_name)
+
+
     def doc_insert_text_data(self, index_name, text_data, text, chunk_size, chunk_overlap):
         try:
+            # try:
+            #     self.doc_insert_index(index_name)
+            # except:
+            #     pass
+            
             es = ElasticsearchStore(
                 index_name=index_name, 
                 embedding=self.embedding,
@@ -48,6 +59,7 @@ class ElasticSearchController:
             
             return docs, ids
         except Exception as e:
+            print(e)
             raise e
 
 

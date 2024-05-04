@@ -79,6 +79,9 @@ class File(Model, _ModelBaseAccess):
     filename = fields.CharField(max_length=255, null=True)
     mime_type = fields.CharField(max_length=64, null=True)
     size_bytes = fields.IntField(null=True)
+    
+    es_doc_ids = fields.TextField(null=True)
+    
     def __str__(self):
         return self.name
 
