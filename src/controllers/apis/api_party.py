@@ -193,26 +193,6 @@ async def party_create(
 
     
     
-    it_role_executive_officer = await Role.create(**{
-      "code": "president",
-      "party": party,
-    })
-
-    it_role_executive_officer = await Role.create(**{
-      "code": "executive_officer",
-      "party": party,
-    })
-
-    it_role_school_affairs_officer = await Role.create(**{
-      "code": "school_affairs_officer",
-      "party": party,
-    })
-
-    it_role_teacher = await Role.create(**{
-      "code": "teacher",
-      "party": party,
-    })
-    
     
 
 

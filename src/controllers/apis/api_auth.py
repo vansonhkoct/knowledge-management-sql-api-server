@@ -19,7 +19,7 @@ from controllers.functions.user.userauth_session import delete_access_token
 
 router = APIRouter(prefix="/api/v1")
 
-
+from models.master import KMUser
 
 TAG_C001 = "C_AUTH001"
 TAG_E001 = "E_AUTH001"
@@ -41,6 +41,8 @@ async def auth_login(
       password=data["password"],
     )
     
+    kmUser = await KMUser.from_tortoise_orm(user)
+    
     userSession = await create_new_access_token_and_refresh_token_by_user(
       user=user,
     )
@@ -50,7 +52,7 @@ async def auth_login(
       "message": TAG_C001,
       "data": {
         "item": {
-          "user": user,
+          "user": kmUser,
           "userSession": userSession,
         },
       },
