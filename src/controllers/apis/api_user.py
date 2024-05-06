@@ -112,17 +112,21 @@ async def user_create(
 ):
   try:
     headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
 
     data = await request.json()
 
     role_id = data["role_id"] if "role_id" in data else None
     role = await Role.filter(id=role_id).first()
 
+    name = data["name"] if "name" in data else None
     username = data["username"] if "username" in data else ""
     password = data["password"] if "password" in data else ""
     
     item = await create_user(
-      role=role,
+      name=name,
+      party_id=user.party_id,
+      role_id=role_id,
       username=username,
       password=password,
     )
@@ -148,3 +152,223 @@ async def user_create(
 
 
 
+
+@router.get("/user")
+async def fetch(
+  request: Request,
+  page: int = 0,
+  limit: int = 10,
+):
+  try:
+    headers = request.headers
+    
+    # Calculate the offset based on the page and limit
+    offset = (page) * limit
+    
+    # Fetch the category items from the database using Tortoise ORM
+    filters = {}
+    
+    filters["is_disabled"] = False
+    filters["is_deleted"] = False
+
+    items = (
+      await User
+        .filter(Q(**filters))
+        .offset(offset)
+        .limit(limit)
+    )
+    
+    total_count = (
+      await User
+        .filter(Q(**filters))
+        .count()
+    )
+
+    tsql = (
+      User
+        .filter(Q(**filters))
+        .sql()
+    )
+
+    for k in range(len(items)):
+      items[k] = await KMUser.from_tortoise_orm(items[k]) 
+
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": {
+        "filters": filters,
+        "sql": tsql,
+        "pagination": {
+          "page": page,
+          "limit": limit,
+          "total_count": total_count,
+        },
+        "items": items,
+      },
+    }
+  
+  except Exception as e:
+    stacktrace = traceback.format_exc()
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+      }
+    )
+
+
+
+
+
+
+
+@router.get("/user/single")
+async def fetchSingle(
+  request: Request,
+  id: str,
+):
+  try:
+    headers = request.headers
+    
+    filters = {}
+    filters["id"] = id
+    filters["is_disabled"] = False
+    filters["is_deleted"] = False
+
+    item = (
+      await User
+        .filter(Q(**filters))
+        .first()
+    )
+    
+
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": item,
+    }
+  
+  except Exception as e:
+    stacktrace = traceback.format_exc()
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+      }
+    )
+
+
+
+
+@router.patch("/user")
+async def update(
+  request: Request,
+  id: str,
+):
+  try:
+    headers = request.headers
+  
+    item = await User.filter(id=id).first()
+    if not item:
+      raise HTTPException(status_code=404, detail="User not found")
+
+    
+    
+    data = await request.json()
+
+
+    if "name" in data:
+      item.name = data["name"]
+
+    if "role_id" in data:
+      item.role_id = data["role_id"]
+
+    if "username" in data:
+      item.username = data["username"]
+
+    # if "password" in data:
+    #   item.password = data["password"]
+
+
+    await item.save()
+    
+    
+    
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": {
+        "item": item,
+      },
+    }
+    
+    
+  except Exception as e:
+    stacktrace = traceback.format_exc()
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+      }
+    )
+    
+    
+
+
+
+
+@router.delete("/user")
+async def remove(
+  request: Request,
+  id: str,
+):
+  try:
+    headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
+  
+    item = await User.filter(id=id).first()
+    
+    if not item:
+      raise HTTPException(status_code=404, detail="User not found")
+
+    item.name = f"Deleted user ({item.name})"
+    item.is_deleted = True
+    await item.save()
+
+    userCredentials = await item.userCredentials.all()
+    for it in userCredentials:
+      it.is_deleted = True
+      await it.save()
+
+    userSessions = await item.userSessions.all()
+    for it in userSessions:
+      it.is_deleted = True
+      await it.save()
+    
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": {
+        "item": item,
+      },
+    }
+    
+    
+  except Exception as e:
+    stacktrace = traceback.format_exc()
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+      }
+    )
+    

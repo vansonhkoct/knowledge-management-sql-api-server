@@ -47,13 +47,13 @@ async def on_upload_file(
     }
   )
 
-  docs, ids = await ESChatLLM.bot_es_add_document(
+  docs, ids, index_name = await ESChatLLM.bot_es_add_document(
     index_name=str(party_id),
     text_data=text_data,
     text=text,
   )
 
-  return docs, ids
+  return docs, ids, index_name
 
 
 async def on_move_file(

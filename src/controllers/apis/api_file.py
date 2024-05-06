@@ -57,7 +57,7 @@ async def upload_and_create(
     es_doc_ids = []
     
     with open(file_ref.filepath, "rb") as r_file:
-      docs, es_doc_ids = await on_upload_file(
+      docs, es_doc_ids, index_name = await on_upload_file(
         party_id=user.party_id,
         filename=file_ref.filename,
         file_id=item.id,
@@ -73,6 +73,9 @@ async def upload_and_create(
       "message": TAG_C001,
       "data": {
         "item": item,
+        "es_doc_ids": es_doc_ids,
+        "index_name": index_name,
+        "docs": docs,
       },
     }
 

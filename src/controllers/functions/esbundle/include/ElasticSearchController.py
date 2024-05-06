@@ -57,7 +57,7 @@ class ElasticSearchController:
             # add Langchain Document chunks to ElasticSearch instance
             ids = es.add_documents(docs)
             
-            return docs, ids
+            return docs, ids, index_name
         except Exception as e:
             print(e)
             raise e
