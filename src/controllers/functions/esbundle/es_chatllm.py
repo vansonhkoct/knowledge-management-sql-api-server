@@ -88,7 +88,7 @@ class _SingleTon:
             chunk_overlap = 10, 
             ):
             
-            docs, ids = self.es_controller.doc_insert_text_data(
+            docs, ids, _index_name = self.es_controller.doc_insert_text_data(
                 index_name = index_name,
                 text_data = text_data,
                 text = text,
@@ -96,10 +96,10 @@ class _SingleTon:
                 chunk_overlap = chunk_overlap,
             )
 
-            return docs, ids
+            return docs, ids, _index_name
 
         loop = asyncio.get_running_loop()
-        docs, ids = await loop.run_in_executor(
+        docs, ids, _index_name = await loop.run_in_executor(
             None,
             fn,
             index_name,
@@ -109,7 +109,7 @@ class _SingleTon:
             chunk_overlap,
             )
         
-        return docs, ids
+        return docs, ids, _index_name
 
 
 

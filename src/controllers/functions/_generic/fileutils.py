@@ -87,10 +87,10 @@ def makeSafeFilename(original_filename):
 
 
 def getStaticFilesBaseUrl():
-  return "http://localhost:17891/static/"
+  return "https://octopus-tech.com:16898/static/"
 
 
 def getUploadFilesBaseUrl():
-  return "http://localhost:17891/upload/"
+  return "https://octopus-tech.com:16898/upload/"
 
 

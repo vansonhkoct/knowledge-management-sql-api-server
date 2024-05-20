@@ -1,8 +1,6 @@
 
 
-from fastapi import APIRouter, File, UploadFile, Request
-
-router = APIRouter(prefix="/api/v1")
+from fastapi import APIRouter, Request
 
 import sys
 import os
@@ -16,12 +14,11 @@ from controllers.functions._generic.fileutils import getStaticFilesBaseUrl, getU
 router = APIRouter(prefix="/api/v1")
 
 
-@router.get("/health/")
+@router.get("/health")
 async def get_health(
   request: Request
 ):
     headers = request.headers
-    form_data = request.form
 
     return {
       "success": True,

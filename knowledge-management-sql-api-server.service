@@ -1,0 +1,13 @@
+[Unit]
+Description=knowledge-management-sql-api-server
+After=network.target
+
+[Service]
+User=octopus
+WorkingDirectory=/home/octopus/Documents/projects/octopus/knowledge-management-sql-api-server
+ExecStart=/home/octopus/Documents/projects/octopus/knowledge-management-sql-api-server/venv/bin/python3 /home/octopus/Documents/projects/octopus/knowledge-management-sql-api-server/main_uvicorn_prod.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

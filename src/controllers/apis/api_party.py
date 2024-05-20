@@ -109,62 +109,62 @@ async def party_create(
     
     
     it_user_superadmin = await create_user(**{
-      "party": party,
-      "role": it_role_superadmin,
+      "party_id": party.id,
+      "role_id": it_role_superadmin.id,
       "name": "Superadmin",
       "username": f"{prefix}superadmin",
       "password": password,
     })
     
     it_user_admin = await create_user(**{
-      "party": party,
-      "role": it_role_admin,
+      "party_id": party.id,
+      "role_id": it_role_admin.id,
       "name": "Admin",
       "username": f"{prefix}admin",
       "password": password,
     })
     
     it_user_teacher_1 = await create_user(**{
-      "party": party,
-      "role": it_role_teacher,
+      "party_id": party.id,
+      "role_id": it_role_teacher.id,
       "name": "Teacher 1",
       "username": f"{prefix}t1",
       "password": password,
     })
     it_user_teacher_2 = await create_user(**{
-      "party": party,
-      "role": it_role_teacher,
+      "party_id": party.id,
+      "role_id": it_role_teacher.id,
       "name": "Teacher 2",
       "username": f"{prefix}t2",
       "password": password,
     })
     it_user_teacher_3 = await create_user(**{
-      "party": party,
-      "role": it_role_teacher,
+      "party_id": party.id,
+      "role_id": it_role_teacher.id,
       "name": "Teacher 3",
       "username": f"{prefix}t3",
       "password": password,
     })
     
     it_user_president_1 = await create_user(**{
-      "party": party,
-      "role": it_role_president,
+      "party_id": party.id,
+      "role_id": it_role_president.id,
       "name": "President 1",
       "username": f"{prefix}p1",
       "password": password,
     })
     
     it_user_executive_officer_1 = await create_user(**{
-      "party": party,
-      "role": it_role_executive_officer,
+      "party_id": party.id,
+      "role_id": it_role_executive_officer.id,
       "name": "Executive Officer 1",
       "username": f"{prefix}eo1",
       "password": password,
     })
     
     it_user_school_affairs_officer_1 = await create_user(**{
-      "party": party,
-      "role": it_role_school_affairs_officer,
+      "party_id": party.id,
+      "role_id": it_role_school_affairs_officer.id,
       "name": "School Affairs Officer 1",
       "username": f"{prefix}sao1",
       "password": password,
