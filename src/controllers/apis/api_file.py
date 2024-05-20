@@ -41,7 +41,6 @@ async def upload_and_create(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
-  
     # Save the uploaded file to the local "./upload" folder
     file_ref, filebytes = await upload_file_write_to_upload_folder(
       file=file,
@@ -100,6 +99,7 @@ async def fetch(
 ):
   try:
     headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
     
     # Calculate the offset based on the page and limit
     offset = (page) * limit
@@ -113,6 +113,7 @@ async def fetch(
       else:
         filters["category_id"] = category_id
 
+    filters["party_id"] = user.party_id if user != None else None
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
@@ -172,9 +173,11 @@ async def fetchSingle(
 ):
   try:
     headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
     
     filters = {}
     filters["id"] = id
+    filters["party_id"] = user.party_id if user != None else None
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
@@ -226,8 +229,16 @@ async def remove(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
-  
-    item = await File.filter(id=id).first()
+
+    filters = {}
+    filters["party_id"] = user.party_id if user != None else None
+    filters["id"] = id
+
+    item = (
+      await File
+        .filter(Q(**filters))
+        .first()
+    )
     
     if not item:
       raise HTTPException(status_code=404, detail="File not found")
@@ -275,8 +286,17 @@ async def update(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
-  
-    item = await File.filter(id=id).first()
+
+    filters = {}
+    filters["party_id"] = user.party_id if user != None else None
+    filters["id"] = id
+
+    item = (
+      await File
+        .filter(Q(**filters))
+        .first()
+    )
+    
     if not item:
       raise HTTPException(status_code=404, detail="File not found")
 

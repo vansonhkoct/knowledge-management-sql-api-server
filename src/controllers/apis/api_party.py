@@ -30,7 +30,17 @@ async def party_create(
   try:
     headers = request.headers
     
-    payload = {}
+    data = await request.json()
+
+    name = data["name"] if "name" in data else ""
+    prefix = data["prefix"] if "prefix" in data else ""
+    password = data["password"] if "password" in data else "123"
+    
+    
+    
+    payload = {
+      "name": name,
+    }
     
     party = await Party.create(**payload)
     
@@ -84,6 +94,10 @@ async def party_create(
       "code": "role -> manage",
     })
 
+    it_permission_role_accessible_category_manage = await Permission.create(**{
+      "code": "role -> accessible_category -> manage",
+    })
+
     it_permission_permission_manage = await Permission.create(**{
       "code": "permission -> manage",
     })
@@ -98,62 +112,62 @@ async def party_create(
       "party": party,
       "role": it_role_superadmin,
       "name": "Superadmin",
-      "username": "superadmin",
-      "password": "123",
+      "username": f"{prefix}superadmin",
+      "password": password,
     })
     
     it_user_admin = await create_user(**{
       "party": party,
       "role": it_role_admin,
       "name": "Admin",
-      "username": "admin",
-      "password": "123",
+      "username": f"{prefix}admin",
+      "password": password,
     })
     
     it_user_teacher_1 = await create_user(**{
       "party": party,
       "role": it_role_teacher,
       "name": "Teacher 1",
-      "username": "t1",
-      "password": "123",
+      "username": f"{prefix}t1",
+      "password": password,
     })
     it_user_teacher_2 = await create_user(**{
       "party": party,
       "role": it_role_teacher,
       "name": "Teacher 2",
-      "username": "t2",
-      "password": "123",
+      "username": f"{prefix}t2",
+      "password": password,
     })
     it_user_teacher_3 = await create_user(**{
       "party": party,
       "role": it_role_teacher,
       "name": "Teacher 3",
-      "username": "t3",
-      "password": "123",
+      "username": f"{prefix}t3",
+      "password": password,
     })
     
     it_user_president_1 = await create_user(**{
       "party": party,
-      "role": it_role_executive_officer,
+      "role": it_role_president,
       "name": "President 1",
-      "username": "p1",
-      "password": "123",
+      "username": f"{prefix}p1",
+      "password": password,
     })
     
     it_user_executive_officer_1 = await create_user(**{
       "party": party,
       "role": it_role_executive_officer,
       "name": "Executive Officer 1",
-      "username": "eo1",
-      "password": "123",
+      "username": f"{prefix}eo1",
+      "password": password,
     })
     
     it_user_school_affairs_officer_1 = await create_user(**{
       "party": party,
       "role": it_role_school_affairs_officer,
       "name": "School Affairs Officer 1",
-      "username": "sao1",
-      "password": "123",
+      "username": f"{prefix}sao1",
+      "password": password,
     })
     
     
@@ -201,13 +215,14 @@ async def party_create(
       it_permission_category_manage,
       it_permission_file_manage,
       it_permission_role_manage,
+      it_permission_role_accessible_category_manage,
       it_permission_permission_manage,
     )
     
     await it_role_admin.permissions.add(
       it_permission_user_manage,
-      it_permission_category_manage,
       it_permission_file_manage,
+      it_permission_role_accessible_category_manage,
     )
 
     await it_role_president.permissions.add(

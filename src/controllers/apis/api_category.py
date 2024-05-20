@@ -19,6 +19,8 @@ router = APIRouter(prefix="/api/v1")
 
 
 from models.master import Category, KMCategory
+from controllers.functions.user.userauth_session import fetch_loggedin_user_info
+
 
 
 TAG_C001 = "C_CATEGORY001"
@@ -34,6 +36,7 @@ async def fetch(
 ):
   try:
     headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
     
     # Calculate the offset based on the page and limit
     offset = (page) * limit
@@ -47,6 +50,7 @@ async def fetch(
       else:
         filters["parent_category_id"] = parent_category_id
 
+    filters["party_id"] = user.party_id if user != None else None
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
@@ -105,8 +109,10 @@ async def fetchSingle(
 ):
   try:
     headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
     
     filters = {}
+    filters["party_id"] = user.party_id if user != None else None
     filters["id"] = id
     filters["is_disabled"] = False
     filters["is_deleted"] = False
@@ -146,6 +152,7 @@ async def create(
 ):
   try:
     headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
     data = await request.json()
     
     payload = {}
@@ -157,6 +164,7 @@ async def create(
       payload["alias"] = data["alias"]
       payload["folderpath_absolute"] = None
 
+    payload["party_id"] = user.party_id if user != None else None
 
     item = await Category.create(**payload)
 
@@ -187,8 +195,17 @@ async def remove(
 ):
   try:
     headers = request.headers
-  
-    item = await Category.filter(id=id).first()
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
+    
+    filters = {}
+    filters["party_id"] = user.party_id if user != None else None
+    filters["id"] = id
+
+    item = (
+      await Category
+        .filter(Q(**filters))
+        .first()
+    )
     
     if not item:
       raise HTTPException(status_code=404, detail="Category not found")
@@ -228,8 +245,18 @@ async def update(
 ):
   try:
     headers = request.headers
-  
-    item = await Category.filter(id=id).first()
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
+    
+    filters = {}
+    filters["party_id"] = user.party_id if user != None else None
+    filters["id"] = id
+
+    item = (
+      await Category
+        .filter(Q(**filters))
+        .first()
+    )
+    
     if not item:
       raise HTTPException(status_code=404, detail="Category not found")
 
