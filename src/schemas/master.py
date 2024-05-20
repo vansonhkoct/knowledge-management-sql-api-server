@@ -129,7 +129,7 @@ class UserCredential(Model, _ModelBaseAccess):
     user = fields.ForeignKeyField("models.User", related_name="userCredentials", null=True)
     credential_type = fields.CharEnumField(enum_type=UserCredentialType, index=True)
     status = fields.CharField(max_length=10, index=True, null=True)
-    username = fields.CharField(max_length=256, index=True, null=True)
+    username = fields.CharField(max_length=256, index=True, unique=True, null=True)
     password_hash = fields.CharField(max_length=256, index=True, null=True)
     def __str__(self):
         return self.name
