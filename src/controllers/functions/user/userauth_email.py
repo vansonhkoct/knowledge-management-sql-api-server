@@ -58,3 +58,28 @@ async def obtain_user_by_user_credential(
 
 
 
+async def obtain_user_by_user_credential_and_party_id(
+  username: str,
+  password: str,
+  party_id: str,
+):
+  try:
+    item = await User.filter(**{
+      "party_id": party_id,
+      "userCredentials__credential_type": UserCredentialType.EMAIL,
+      "userCredentials__status": "ACTIVATED",
+      "userCredentials__username": username,
+    }).first()
+    
+    if (checkPassword(
+      hashed_password=item.password_hash,
+      password=password,
+    )):
+      await item.fetch_related("user")
+      return item.user
+  
+    return None
+  
+  except Exception as e:
+    raise e
+

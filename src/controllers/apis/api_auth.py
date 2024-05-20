@@ -11,6 +11,7 @@ parent_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(parent_dir + "/../../")
 
 from controllers.functions.user.userauth_email import obtain_user_by_user_credential
+from controllers.functions.user.userauth_email import obtain_user_by_user_credential_and_party_id
 
 from controllers.functions.user.userauth_session import obtain_user_by_user_access_token
 from controllers.functions.user.userauth_session import create_new_access_token_by_user_refresh_token
@@ -36,10 +37,23 @@ async def auth_login(
     
     data = await request.json()
     
-    user = await obtain_user_by_user_credential(
-      username=data["username"],
-      password=data["password"],
-    )
+    if "party_id" in data:
+      user = await obtain_user_by_user_credential_and_party_id(
+        username=data["username"],
+        password=data["password"],
+        party_id=data["party_id"],
+      )
+      
+    else:
+      user = await obtain_user_by_user_credential(
+        username=data["username"],
+        password=data["password"],
+      )
+    
+
+    if not user:
+      raise HTTPException(status_code=404, detail="User not found")
+
     
     kmUser = await KMUser.from_tortoise_orm(user)
     
