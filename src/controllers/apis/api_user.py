@@ -161,13 +161,14 @@ async def fetch(
 ):
   try:
     headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
     
     # Calculate the offset based on the page and limit
     offset = (page) * limit
     
     # Fetch the category items from the database using Tortoise ORM
     filters = {}
-    
+    filters["party_id"] = user.party_id if user != None else None
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
@@ -232,9 +233,11 @@ async def fetchSingle(
 ):
   try:
     headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
     
     filters = {}
     filters["id"] = id
+    filters["party_id"] = user.party_id if user != None else None
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
@@ -272,11 +275,21 @@ async def update(
 ):
   try:
     headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
   
-    item = await User.filter(id=id).first()
+    filters = {}
+    filters["party_id"] = user.party_id if user != None else None
+    filters["id"] = id
+
+    item = (
+      await User
+        .filter(Q(**filters))
+        .first()
+    )
+    
     if not item:
       raise HTTPException(status_code=404, detail="User not found")
-
+    
     
     
     data = await request.json()
@@ -333,7 +346,15 @@ async def remove(
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
   
-    item = await User.filter(id=id).first()
+    filters = {}
+    filters["party_id"] = user.party_id if user != None else None
+    filters["id"] = id
+
+    item = (
+      await User
+        .filter(Q(**filters))
+        .first()
+    )
     
     if not item:
       raise HTTPException(status_code=404, detail="User not found")
