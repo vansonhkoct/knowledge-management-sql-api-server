@@ -64,11 +64,11 @@ async def obtain_user_by_user_credential_and_party_id(
   party_id: str,
 ):
   try:
-    item = await User.filter(**{
-      "party_id": party_id,
-      "userCredentials__credential_type": UserCredentialType.EMAIL,
-      "userCredentials__status": "ACTIVATED",
-      "userCredentials__username": username,
+    item = await UserCredential.filter(**{
+      "user__party_id": party_id,
+      "credential_type": UserCredentialType.EMAIL,
+      "status": "ACTIVATED",
+      "username": username,
     }).first()
     
     if (checkPassword(
