@@ -12,6 +12,7 @@ sys.path.append(parent_dir + "/../../")
 
 from controllers.functions._generic.fileutils import UploadFileRecord, upload_file_write_to_upload_folder
 from controllers.functions.file.file import create_entry_file
+from controllers.functions.user.userauth_session import fetch_loggedin_user_info
 
 router = APIRouter(prefix="/api/v1")
 
@@ -30,8 +31,11 @@ async def role_create(
 ):
   try:
     headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
     
-    payload = {}
+    payload = {
+      "party_id": user.party_id,
+    }
     
     item = await Role.create(**payload)
 
@@ -65,6 +69,7 @@ async def fetch(
 ):
   try:
     headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
     
     # Calculate the offset based on the page and limit
     offset = (page) * limit
@@ -74,6 +79,7 @@ async def fetch(
     
     filters["is_disabled"] = False
     filters["is_deleted"] = False
+    filters["party_id"] = user.party_id
 
     items = (
       await Role
@@ -133,11 +139,13 @@ async def fetchSingle(
 ):
   try:
     headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
     
     filters = {}
     filters["id"] = id
     filters["is_disabled"] = False
     filters["is_deleted"] = False
+    filters["party_id"] = user.party_id
 
     item = (
       await Role

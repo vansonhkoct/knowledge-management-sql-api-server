@@ -23,7 +23,8 @@ TAG_E001 = "E_PARTY001"
 
 
 
-@router.post("/party")
+
+@router.post("/party/create_default")
 async def party_create(
   request: Request,
 ):
@@ -45,11 +46,6 @@ async def party_create(
     party = await Party.create(**payload)
     
     
-    
-    it_role_superadmin = await Role.create(**{
-      "code": "superadmin",
-      "party": party,
-    })
     
     it_role_admin = await Role.create(**{
       "code": "admin",
@@ -107,14 +103,6 @@ async def party_create(
     })
     
     
-    
-    it_user_superadmin = await create_user(**{
-      "party_id": party.id,
-      "role_id": it_role_superadmin.id,
-      "name": "Superadmin",
-      "username": f"{prefix}superadmin",
-      "password": password,
-    })
     
     it_user_admin = await create_user(**{
       "party_id": party.id,
@@ -209,19 +197,11 @@ async def party_create(
     
     
 
-
-    await it_role_superadmin.permissions.add(
-      it_permission_user_manage,
-      it_permission_category_manage,
-      it_permission_file_manage,
-      it_permission_role_manage,
-      it_permission_role_accessible_category_manage,
-      it_permission_permission_manage,
-    )
     
     await it_role_admin.permissions.add(
       it_permission_user_manage,
       it_permission_file_manage,
+      it_permission_role_manage,
       it_permission_role_accessible_category_manage,
     )
 
@@ -295,3 +275,74 @@ async def party_create(
     )
 
 
+
+@router.post("/party/create_superadmin_party")
+async def party_create_superadmin_party(
+  request: Request,
+):
+  try:
+    headers = request.headers
+    
+    data = await request.json()
+
+    name = data["name"] if "name" in data else ""
+    prefix = data["prefix"] if "prefix" in data else ""
+    password = data["password"] if "password" in data else "123"
+    
+
+    party = await Party.create(**payload)
+    
+    payload = {
+      "name": name,
+    }
+
+    it_role_superadmin = await Role.create(**{
+      "code": "superadmin",
+      "party": party,
+    })
+    
+    it_permission_superadmin_manage_partys = await Permission.create(**{
+      "code": "superadmin -> manage_partys",
+    })
+    
+    it_permission_superadmin_manage_shared_categorys = await Permission.create(**{
+      "code": "superadmin -> manage_shared_categorys",
+    })
+    
+    
+    it_user_superadmin = await create_user(**{
+      "role_id": it_role_superadmin.id,
+      "name": "Superadmin",
+      "username": f"{prefix}superadmin",
+      "password": password,
+    })
+    
+    
+    await it_role_superadmin.permissions.add(
+      it_permission_superadmin_manage_partys,
+      it_permission_superadmin_manage_shared_categorys,
+    )
+
+
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": {
+        "item": party,
+      },
+    }
+    
+  except Exception as e:
+    stacktrace = traceback.format_exc()
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+      }
+    )
+    
+    
+    
+    
