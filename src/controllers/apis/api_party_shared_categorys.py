@@ -22,6 +22,7 @@ router = APIRouter(prefix="/api/v1")
 from models.master import Category, KMCategory
 from models.master import Party, PartyAccessibleSharedCategory
 from controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
 
 
 
@@ -35,16 +36,15 @@ TAG_E001 = "E_PARTY_SHARED_CATEGORY001"
 
 
 @router.get("/party_shared_categorys")
-async def fetch(
+async def fetch_party_shared_categorys(
   request: Request,
   page: int = 0,
   limit: int = 10,
   party_id: str = None
 ):
-  try:
-    headers = request.headers
-    user, access_token = await fetch_loggedin_user_info(headers=headers)
-    
+  async def asyncjob(
+    headers, user, access_token,
+  ):
     # Calculate the offset based on the page and limit
     offset = (page) * limit
     
@@ -56,51 +56,81 @@ async def fetch(
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
-    items = (
-      await Category.filter(Q(**filters))
-      .offset(offset)
-      .limit(limit)
+    items, total_count, tsql = await fetch_paginated(
+      model=Category,
+      filters=filters,
+      offset=offset,
+      limit=limit,
     )
     
-    total_count = (
-      await Category
-        .filter(Q(**filters))
-        .count()
-    )
-
-    tsql = (
-      Category
-        .filter(Q(**filters))
-        .sql()
-    )
-
     return {
-      "success": True,
-      "message": TAG_C001,
-      "data": {
-        "filters": filters,
-        "sql": tsql,
-        "pagination": {
-          "page": page,
-          "limit": limit,
-          "total_count": total_count,
-        },
-        "items": items,
+      "filters": filters,
+      "sql": tsql,
+      "pagination": {
+        "page": page,
+        "limit": limit,
+        "total_count": total_count,
       },
+      "items": items,
     }
   
-  except Exception as e:
-    stacktrace = traceback.format_exc()
-    raise HTTPException(
-      status_code=500,
-      detail={
-        "message": TAG_E001,
-        "error": str(e),
-        "stacktrace": stacktrace,
-      }
+  return await wrapped_api_task(
+    request=request,
+    fetch_loggedin_user_info=fetch_loggedin_user_info,
+    asyncjob=asyncjob,
+    code_success=TAG_C001,
+    code_error=TAG_E001,
+  )
+  
+
+
+@router.get("/category_shared_partys")
+async def fetch_category_shared_partys(
+  request: Request,
+  page: int = 0,
+  limit: int = 10,
+  category_id: str = None
+):
+  async def asyncjob(
+    headers, user, access_token,
+  ):
+    # Calculate the offset based on the page and limit
+    offset = (page) * limit
+    
+    # Fetch the category items from the database using Tortoise ORM
+    filters = {}
+    filters["rel_PartyAccessibleSharedCategory__category__id"] = (category_id if category_id != None else None)
+    filters["rel_PartyAccessibleSharedCategory__category__is_disabled"] = False
+    filters["rel_PartyAccessibleSharedCategory__category__is_deleted"] = False
+    filters["is_disabled"] = False
+    filters["is_deleted"] = False
+
+    items, total_count, tsql = await fetch_paginated(
+      model=Party,
+      filters=filters,
+      offset=offset,
+      limit=limit,
     )
-
-
+    
+    return {
+      "filters": filters,
+      "sql": tsql,
+      "pagination": {
+        "page": page,
+        "limit": limit,
+        "total_count": total_count,
+      },
+      "items": items,
+    }
+  
+  return await wrapped_api_task(
+    request=request,
+    fetch_loggedin_user_info=fetch_loggedin_user_info,
+    asyncjob=asyncjob,
+    code_success=TAG_C001,
+    code_error=TAG_E001,
+  )
+  
 
 
 
