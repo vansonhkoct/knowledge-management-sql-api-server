@@ -15,13 +15,91 @@ router = APIRouter(prefix="/api/v1")
 
 from models.master import Party, User, Role, Permission, Category
 from controllers.functions.user.user import create_user
-
+from controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
 
 TAG_C001 = "C_PARTY001"
 TAG_E001 = "E_PARTY001"
 
 
 
+
+@router.get("/party")
+async def fetch(
+  request: Request,
+  page: int = 0,
+  limit: int = 10,
+):
+  async def asyncjob(
+    headers, user, access_token,
+  ):
+    # Calculate the offset based on the page and limit
+    offset = (page) * limit
+    
+    # Fetch the category items from the database using Tortoise ORM
+    filters = {}
+    
+    filters["is_disabled"] = False
+    filters["is_deleted"] = False
+
+    items, total_count, tsql = await fetch_paginated(
+      model=Party,
+      filters=filters,
+      offset=offset,
+      limit=limit,
+    )
+    
+    return {
+      "filters": filters,
+      "sql": tsql,
+      "pagination": {
+        "page": page,
+        "limit": limit,
+        "total_count": total_count,
+      },
+      "items": items,
+    }
+  
+  return await wrapped_api_task(
+    request=request,
+    fetch_loggedin_user_info=fetch_loggedin_user_info,
+    asyncjob=asyncjob,
+    code_success=TAG_C001,
+    code_error=TAG_E001,
+  )
+  
+
+
+@router.get("/party/single")
+async def fetchSingle(
+  request: Request,
+  id: str,
+):
+  async def asyncjob(
+    headers, user, access_token,
+  ):
+    filters = {}
+    filters["id"] = id
+    filters["is_disabled"] = False
+    filters["is_deleted"] = False
+
+    item = await fetch_single(
+      model=Party,
+      filters=filters,
+    )
+
+    return item
+  
+  return await wrapped_api_task(
+    request=request,
+    fetch_loggedin_user_info=fetch_loggedin_user_info,
+    asyncjob=asyncjob,
+    code_success=TAG_C001,
+    code_error=TAG_E001,
+  )
+  
+  
+  
 
 
 @router.post("/party/create_default")
