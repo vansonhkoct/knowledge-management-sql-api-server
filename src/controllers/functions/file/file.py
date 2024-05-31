@@ -15,15 +15,17 @@ ESChatLLM = None
 extract_pdf_file_to_text = None
 
 
-def _bootstrapImportESBundle():
+def bootstrapImportESBundle():
   global ESChatLLM
   global extract_pdf_file_to_text
   
   if (ESChatLLM == None):
-    from controllers.functions.esbundle.es_chatllm import ESChatLLM
+    from controllers.functions.esbundle.es_chatllm import ESChatLLM as _ESChatLLM
+    ESChatLLM = _ESChatLLM
     
   if (extract_pdf_file_to_text == None):
-    from controllers.functions.esbundle.es_chatllm import extract_pdf_file_to_text
+    from controllers.functions.esbundle.es_chatllm import extract_pdf_file_to_text as _extract_pdf_file_to_text
+    extract_pdf_file_to_text = _extract_pdf_file_to_text
 
 
 
@@ -52,7 +54,7 @@ async def on_upload_file(
   file: BinaryIO,
   category_id: str,
 ):
-  _bootstrapImportESBundle()
+  bootstrapImportESBundle()
   
   text_data, text = extract_pdf_file_to_text(
     filename=filename,
@@ -77,7 +79,7 @@ async def on_move_file(
   file: File,
   category_id: str,
 ):
-  _bootstrapImportESBundle()
+  bootstrapImportESBundle()
   
   es_doc_ids = (file.es_doc_ids if file.es_doc_ids != None else "").split(",")
 
@@ -94,7 +96,7 @@ async def on_remove_file(
   party_id: str,
   file: File,
 ):
-  _bootstrapImportESBundle()
+  bootstrapImportESBundle()
   
   es_doc_ids = (file.es_doc_ids if file.es_doc_ids != None else "").split(",")
 
@@ -110,7 +112,7 @@ async def fetch_es_docs(
   party_id: str,
   file: File,
 ):
-  _bootstrapImportESBundle()
+  bootstrapImportESBundle()
   
   es_doc_ids = (file.es_doc_ids if file.es_doc_ids != None else "").split(",")
   results = []

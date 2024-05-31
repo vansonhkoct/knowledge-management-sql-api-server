@@ -13,6 +13,7 @@ sys.path.append(parent_dir + "/../../")
 from controllers.functions._generic.fileutils import UploadFileRecord
 from controllers.functions._generic.fileutils import upload_file_write_to_upload_folder
 from controllers.functions._generic.fileutils import remove_file_from_upload_folder
+from controllers.functions.file.file import bootstrapImportESBundle
 from controllers.functions.file.file import create_entry_file
 from controllers.functions.file.file import on_move_file
 from controllers.functions.file.file import on_remove_file
@@ -28,6 +29,31 @@ from models.master import Category, KMCategory
 
 TAG_C001 = "C_FILE001"
 TAG_E001 = "E_FILE001"
+
+@router.post("/file/initializeES")
+async def initializeES(
+  request: Request,
+):
+  try:
+    bootstrapImportESBundle()
+    
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": {
+      },
+    }
+
+  except Exception as e:
+    stacktrace = traceback.format_exc()
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+      }
+    )
 
 
 @router.post("/file/upload")
