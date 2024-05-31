@@ -300,31 +300,3 @@ async def update(
 
 
 
-
-# @router.post("/category")
-# async def move(
-#   request: Request,
-#   category_id: Annotated[str, Form()] = None,
-#   # file: UploadFile = File(...),
-#   file: UploadFile = File(),
-# ):
-#     headers = request.headers
-  
-#     # Save the uploaded file to the local "./upload" folder
-#     file_ref = await upload_file_write_to_upload_folder(
-#       file=file,
-#     )
-    
-#     file_entry = await create_entry_file(
-#       uploadFileRecord = file_ref,
-#     )
-    
-#     return {
-#       "success": True,
-#       "message": TAG_C001,
-#       "data": {
-#         "item": file_entry,
-#         "c": category_id,
-#       },
-#     }
-

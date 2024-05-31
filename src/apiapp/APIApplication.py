@@ -84,6 +84,9 @@ app.include_router(router = router_party)
 from controllers.apis.api_auth import router as router_auth
 app.include_router(router = router_auth)
 
+from controllers.apis.api_party_shared_categorys import router as router_party_shared_categorys
+app.include_router(router = router_party_shared_categorys)
+
 
 
 

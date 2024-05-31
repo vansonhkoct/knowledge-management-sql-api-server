@@ -100,6 +100,19 @@ class Party(Model, _ModelBaseAccess):
             "users",
             "files",
         )
+        
+
+class PartyAccessibleSharedCategory(Model):
+    party = fields.ForeignKeyField("models.Party", null=True, related_name="rel_PartyAccessibleSharedCategory")
+    category = fields.ForeignKeyField("models.Category", null=True, related_name="rel_PartyAccessibleSharedCategory")
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        table = "_rel_party_accessible_shared_category"
+    
 
 class User(Model, _ModelBaseAccess, _ModelBaseBody):
     role = fields.ForeignKeyField("models.Role", related_name="users", null=True)

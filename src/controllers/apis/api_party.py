@@ -290,12 +290,12 @@ async def party_create_superadmin_party(
     password = data["password"] if "password" in data else "123"
     
 
-    party = await Party.create(**payload)
-    
     payload = {
       "name": name,
     }
 
+    party = await Party.create(**payload)
+    
     it_role_superadmin = await Role.create(**{
       "code": "superadmin",
       "party": party,
@@ -311,6 +311,7 @@ async def party_create_superadmin_party(
     
     
     it_user_superadmin = await create_user(**{
+      "party_id": party.id,
       "role_id": it_role_superadmin.id,
       "name": "Superadmin",
       "username": f"{prefix}superadmin",

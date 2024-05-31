@@ -8,9 +8,23 @@ sys.path.append(parent_dir + "/../../../")
 from controllers.functions._generic.fileutils import UploadFileRecord, upload_file_write_to_upload_folder
 from models.master import File
 
-from controllers.functions.esbundle.es_chatllm import ESChatLLM, extract_pdf_file_to_text
-
 from typing import BinaryIO
+
+
+ESChatLLM = None
+extract_pdf_file_to_text = None
+
+
+def _bootstrapImportESBundle():
+  global ESChatLLM
+  global extract_pdf_file_to_text
+  
+  if (ESChatLLM == None):
+    from controllers.functions.esbundle.es_chatllm import ESChatLLM
+    
+  if (extract_pdf_file_to_text == None):
+    from controllers.functions.esbundle.es_chatllm import extract_pdf_file_to_text
+
 
 
 async def create_entry_file(
@@ -38,6 +52,8 @@ async def on_upload_file(
   file: BinaryIO,
   category_id: str,
 ):
+  _bootstrapImportESBundle()
+  
   text_data, text = extract_pdf_file_to_text(
     filename=filename,
     file=file,
@@ -61,6 +77,8 @@ async def on_move_file(
   file: File,
   category_id: str,
 ):
+  _bootstrapImportESBundle()
+  
   es_doc_ids = (file.es_doc_ids if file.es_doc_ids != None else "").split(",")
 
   for index in range(len(es_doc_ids)):
@@ -76,6 +94,8 @@ async def on_remove_file(
   party_id: str,
   file: File,
 ):
+  _bootstrapImportESBundle()
+  
   es_doc_ids = (file.es_doc_ids if file.es_doc_ids != None else "").split(",")
 
   for index in range(len(es_doc_ids)):
@@ -90,6 +110,8 @@ async def fetch_es_docs(
   party_id: str,
   file: File,
 ):
+  _bootstrapImportESBundle()
+  
   es_doc_ids = (file.es_doc_ids if file.es_doc_ids != None else "").split(",")
   results = []
 
