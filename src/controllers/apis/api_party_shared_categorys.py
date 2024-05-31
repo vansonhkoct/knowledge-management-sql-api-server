@@ -35,7 +35,7 @@ TAG_E001 = "E_PARTY_SHARED_CATEGORY001"
 
 
 
-@router.get("/party_shared_categorys")
+@router.get("/party_shared_categorys/party_shared_categorys")
 async def fetch_party_shared_categorys(
   request: Request,
   page: int = 0,
@@ -84,7 +84,7 @@ async def fetch_party_shared_categorys(
   
 
 
-@router.get("/category_shared_partys")
+@router.get("/party_shared_categorys/category_shared_partys")
 async def fetch_category_shared_partys(
   request: Request,
   page: int = 0,
@@ -135,7 +135,7 @@ async def fetch_category_shared_partys(
 
 
 
-@router.post("/party_shared_categorys")
+@router.post("/party_shared_categorys/bulk_update")
 async def bulk_update_mappings(
   request: Request,
 ):
