@@ -79,6 +79,7 @@ class _SingleTon:
         text,
         chunk_size = 300, 
         chunk_overlap = 10, 
+        extra_metadata = {},
     ):
         def fn(
             index_name,
@@ -94,6 +95,7 @@ class _SingleTon:
                 text = text,
                 chunk_size = chunk_size, 
                 chunk_overlap = chunk_overlap,
+                extra_metadata = extra_metadata,
             )
 
             return docs, ids, _index_name
@@ -118,6 +120,7 @@ class _SingleTon:
         index_name, 
         id,
         document_category,
+        document_tags,
     ):
         def fn(
             index_name, 
@@ -128,6 +131,7 @@ class _SingleTon:
                 index_name = index_name,
                 id = id,
                 document_category=document_category,
+                document_tags=document_tags,
             )
             return res
 

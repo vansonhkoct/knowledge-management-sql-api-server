@@ -34,7 +34,7 @@ class ElasticSearchController:
         return self.es_client.indices.create(index=index_name)
 
 
-    def doc_insert_text_data(self, index_name, text_data, text, chunk_size, chunk_overlap):
+    def doc_insert_text_data(self, index_name, text_data, text, chunk_size, chunk_overlap, extra_metadata):
         try:
             # try:
             #     self.doc_insert_index(index_name)
@@ -52,7 +52,8 @@ class ElasticSearchController:
             )
 
             # load txt file as Langchain Document chunks
-            docs = DocumentUtils.load_oc_text(updated_text, chunk_size, chunk_overlap)
+            docs = DocumentUtils.load_oc_text(updated_text, chunk_size, chunk_overlap, 
+                                              extra_metadata=extra_metadata)
 
             # add Langchain Document chunks to ElasticSearch instance
             ids = es.add_documents(docs)
@@ -68,6 +69,7 @@ class ElasticSearchController:
         index_name, 
         id,
         document_category,
+        document_tags,
     ):
         return self.es_client.update(
             index=index_name,
@@ -76,7 +78,25 @@ class ElasticSearchController:
                 'doc': {
                     'metadata': {
                         "document_category": document_category,
+                        "document_tags": document_tags,
                     }
+                }
+            }
+        )
+
+
+    def doc_update_document_metadata_free(
+        self,
+        index_name, 
+        id,
+        metadata,
+    ):
+        return self.es_client.update(
+            index=index_name,
+            id=id,
+            body={
+                'doc': {
+                    'metadata': metadata,
                 }
             }
         )

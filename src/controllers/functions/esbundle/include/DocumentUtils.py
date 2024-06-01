@@ -77,10 +77,10 @@ class DocumentUtils:
     
     
     @staticmethod
-    def load_oc_text(text, chunk_size=300, chunk_overlap=10, use_text_splitter=True):               
+    def load_oc_text(text, chunk_size=300, chunk_overlap=10, use_text_splitter=True, extra_metadata={}):               
         # loader = TextLoader(filepath, encoding='utf-8')
         # documents = loader.load()
-        documents = parse_oc_text_to_documents(text)
+        documents = parse_oc_text_to_documents(text, extra_metadata)
         if (use_text_splitter):
             text_splitter = CharacterTextSplitter(separator='\n', chunk_size=chunk_size, chunk_overlap=chunk_overlap)
             docs = text_splitter.split_documents(documents)
@@ -98,6 +98,7 @@ from bs4 import BeautifulSoup
 
 def parse_oc_text_to_documents(
     content,
+    extra_metadata={},
 ):
     
     documents = []
@@ -143,6 +144,12 @@ def parse_oc_text_to_documents(
             metakey = meta.attrs["key"]
             metavalue = meta.attrs["value"]
             metadata[metakey] = metavalue
+                    
+                    
+        for extra_meta_key in extra_metadata:
+            extra_meta_value = extra_metadata[extra_meta_key]
+            metadata[extra_meta_key] = extra_meta_value
+    
     
         metadata["page"] = 0
         
@@ -165,7 +172,13 @@ def parse_oc_text_to_documents(
             metakey = meta.attrs["key"]
             metavalue = meta.attrs["value"]
             metadata[metakey] = metavalue
+                        
+                    
+        for extra_meta_key in extra_metadata:
+            extra_meta_value = extra_metadata[extra_meta_key]
+            metadata[extra_meta_key] = extra_meta_value
     
+
         metadata["page"] = page.attrs["page"]
         
         documents.append(

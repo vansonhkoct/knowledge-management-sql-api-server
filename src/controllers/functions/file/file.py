@@ -53,6 +53,10 @@ async def on_upload_file(
   file_id: str,
   file: BinaryIO,
   category_id: str,
+  document_tags = [],
+  document_title: str = None,
+  document_summary: str = None,
+  document_remarks: str = None,
 ):
   bootstrapImportESBundle()
   
@@ -69,6 +73,12 @@ async def on_upload_file(
     index_name=str(party_id),
     text_data=text_data,
     text=text,
+    extra_metadata={
+        "document_tags": document_tags,
+        "document_title": str(document_title) if document_title != None else None,
+        "document_summary": str(document_summary) if document_summary != None else None,
+        "document_remarks": str(document_remarks) if document_remarks != None else None,
+    }
   )
 
   return docs, ids, index_name
