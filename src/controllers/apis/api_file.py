@@ -249,6 +249,7 @@ async def fetch(
 async def fetchSingle(
   request: Request,
   id: str,
+  party_id: str = None,
   is_fetch_es_docs: int = 0,
 ):
   try:
@@ -257,7 +258,7 @@ async def fetchSingle(
     
     filters = {}
     filters["id"] = id
-    filters["party_id"] = user.party_id if user != None else None
+    filters["party_id"] = party_id if party_id != None else (user.party_id if user != None else None)
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
