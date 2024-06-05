@@ -87,6 +87,12 @@ app.include_router(router = router_auth)
 from controllers.apis.api_party_shared_categorys import router as router_party_shared_categorys
 app.include_router(router = router_party_shared_categorys)
 
+from controllers.apis.api_role_accessible_categorys import router as router_role_accessible_categorys
+app.include_router(router = router_role_accessible_categorys)
+
+from controllers.apis.api_role_permission import router as router_role_permission
+app.include_router(router = router_role_permission)
+
 
 
 
