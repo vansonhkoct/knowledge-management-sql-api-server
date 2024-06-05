@@ -56,7 +56,6 @@ async def fetch_role_accessible_categorys(
     filters["accessible_roles__is_deleted"] = False
     filters["is_disabled"] = False
     filters["is_deleted"] = False
-    filters["accessible_roles__permissions__code"] = "knowledge -> search"
 
     items, total_count, tsql = await fetch_paginated(
       model=Category,
@@ -107,7 +106,6 @@ async def fetch_category_accessible_roles(
     filters["accessible_categorys__is_deleted"] = False
     filters["is_disabled"] = False
     filters["is_deleted"] = False
-    filters["permissions__code"] = "knowledge -> search"
 
     items, total_count, tsql = await fetch_paginated(
       model=Role,

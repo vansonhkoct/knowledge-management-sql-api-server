@@ -66,6 +66,7 @@ async def fetch(
   request: Request,
   page: int = 0,
   limit: int = 10,
+  permission_code: str = None,
 ):
   try:
     headers = request.headers
@@ -80,6 +81,8 @@ async def fetch(
     filters["is_disabled"] = False
     filters["is_deleted"] = False
     filters["party_id"] = user.party_id
+    if permission_code != None:
+      filters["permissions__code"] = permission_code
 
     items = (
       await Role
