@@ -56,6 +56,7 @@ async def fetch_role_accessible_categorys(
     filters["accessible_roles__is_deleted"] = False
     filters["is_disabled"] = False
     filters["is_deleted"] = False
+    filters["accessible_roles__permissions__code"] = "knowledge -> search"
 
     items, total_count, tsql = await fetch_paginated(
       model=Category,
@@ -106,6 +107,7 @@ async def fetch_category_accessible_roles(
     filters["accessible_categorys__is_deleted"] = False
     filters["is_disabled"] = False
     filters["is_deleted"] = False
+    filters["permissions__code"] = "knowledge -> search"
 
     items, total_count, tsql = await fetch_paginated(
       model=Role,
@@ -158,16 +160,16 @@ async def bulk_update_mappings(
 
     # TODO: bulk add
     for dict in add_mappings:
-      category = await Category.filter( Q(**{ id: dict[map_key_x] }) ).first()
-      role = await Role.filter( Q(**{ id: dict[map_key_y] }) ).first()
+      category = await Category.filter( Q(**{ "id": dict[map_key_x] }) ).first()
+      role = await Role.filter( Q(**{ "id": dict[map_key_y] }) ).first()
       if (category != None and role != None):
         await category.accessible_roles.add(role)
 
 
     # TODO: bulk remove
     for dict in remove_mappings:
-      category = await Category.filter( Q(**{ id: dict[map_key_x] }) ).first()
-      role = await Role.filter( Q(**{ id: dict[map_key_y] }) ).first()
+      category = await Category.filter( Q(**{ "id": dict[map_key_x] }) ).first()
+      role = await Role.filter( Q(**{ "id": dict[map_key_y] }) ).first()
       if (category != None and role != None):
         await category.accessible_roles.remove(role)
 

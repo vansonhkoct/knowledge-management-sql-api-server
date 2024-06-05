@@ -158,16 +158,16 @@ async def bulk_update_mappings(
 
     # TODO: bulk add
     for dict in add_mappings:
-      permission = await Permission.filter( Q(**{ id: dict[map_key_x] }) ).first()
-      role = await Role.filter( Q(**{ id: dict[map_key_y] }) ).first()
+      permission = await Permission.filter( Q(**{ "id": dict[map_key_x] }) ).first()
+      role = await Role.filter( Q(**{ "id": dict[map_key_y] }) ).first()
       if (permission != None and role != None):
         await permission.roles.add(role)
 
 
     # TODO: bulk remove
     for dict in remove_mappings:
-      permission = await Permission.filter( Q(**{ id: dict[map_key_x] }) ).first()
-      role = await Role.filter( Q(**{ id: dict[map_key_y] }) ).first()
+      permission = await Permission.filter( Q(**{ "id": dict[map_key_x] }) ).first()
+      role = await Role.filter( Q(**{ "id": dict[map_key_y] }) ).first()
       if (permission != None and role != None):
         await permission.roles.remove(role)
 
