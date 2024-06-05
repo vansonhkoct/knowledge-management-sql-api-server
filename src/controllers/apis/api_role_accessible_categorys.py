@@ -163,7 +163,7 @@ async def bulk_update_mappings(
       category = await Category.filter( Q(**{ "id": dict[map_key_x] }) ).first()
       role = await Role.filter( Q(**{ "id": dict[map_key_y] }) ).first()
       if (category != None and role != None):
-        await category.accessible_roles.add(role)
+        await role.accessible_categorys.add(category)
 
 
     # TODO: bulk remove
@@ -171,7 +171,7 @@ async def bulk_update_mappings(
       category = await Category.filter( Q(**{ "id": dict[map_key_x] }) ).first()
       role = await Role.filter( Q(**{ "id": dict[map_key_y] }) ).first()
       if (category != None and role != None):
-        await category.accessible_roles.remove(role)
+        await role.accessible_categorys.remove(category)
 
 
     return {
