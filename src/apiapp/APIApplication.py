@@ -78,9 +78,6 @@ app.include_router(router = router_permission)
 from controllers.apis.api_party import router as router_party
 app.include_router(router = router_party)
 
-from controllers.apis.api_party import router as router_party
-app.include_router(router = router_party)
-
 from controllers.apis.api_auth import router as router_auth
 app.include_router(router = router_auth)
 
