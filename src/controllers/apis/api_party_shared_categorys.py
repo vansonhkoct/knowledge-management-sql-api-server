@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/v1")
 
 
 from models.master import Category, KMCategory
-from models.master import Party, PartyAccessibleSharedCategory
+from models.master import Party, ZRelPartyAccessibleSharedCategory
 from controllers.functions.user.userauth_session import fetch_loggedin_user_info
 from controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
 
@@ -50,9 +50,9 @@ async def fetch_party_shared_categorys(
     
     # Fetch the category items from the database using Tortoise ORM
     filters = {}
-    filters["rel_PartyAccessibleSharedCategory__party__id"] = (party_id if party_id != None else user.party_id if user != None else None)
-    filters["rel_PartyAccessibleSharedCategory__party__is_disabled"] = False
-    filters["rel_PartyAccessibleSharedCategory__party__is_deleted"] = False
+    filters["ZRelPartyAccessibleSharedCategory__party__id"] = (party_id if party_id != None else user.party_id if user != None else None)
+    filters["ZRelPartyAccessibleSharedCategory__party__is_disabled"] = False
+    filters["ZRelPartyAccessibleSharedCategory__party__is_deleted"] = False
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
@@ -99,9 +99,9 @@ async def fetch_category_shared_partys(
     
     # Fetch the category items from the database using Tortoise ORM
     filters = {}
-    filters["rel_PartyAccessibleSharedCategory__category__id"] = (category_id if category_id != None else None)
-    filters["rel_PartyAccessibleSharedCategory__category__is_disabled"] = False
-    filters["rel_PartyAccessibleSharedCategory__category__is_deleted"] = False
+    filters["ZRelPartyAccessibleSharedCategory__category__id"] = (category_id if category_id != None else None)
+    filters["ZRelPartyAccessibleSharedCategory__category__is_disabled"] = False
+    filters["ZRelPartyAccessibleSharedCategory__category__is_deleted"] = False
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
@@ -156,14 +156,14 @@ async def bulk_update_mappings(
 
     # bulk add
     add_records = [ (
-      PartyAccessibleSharedCategory(**{
+      ZRelPartyAccessibleSharedCategory(**{
         map_key_x: dict[map_key_x],
         map_key_y: dict[map_key_y],
       })
     ) for dict in add_mappings ]
 
     if (len(add_records) > 0):
-      await PartyAccessibleSharedCategory.bulk_create(add_records)
+      await ZRelPartyAccessibleSharedCategory.bulk_create(add_records)
 
 
 
@@ -177,8 +177,8 @@ async def bulk_update_mappings(
       filters[f"{map_key_y}__in"] = items
       
       if (len(items) > 0):
-        print("deleting: " , filters , await PartyAccessibleSharedCategory.filter(Q(**filters)))
-        await PartyAccessibleSharedCategory.filter(Q(**filters)).delete()
+        print("deleting: " , filters , await ZRelPartyAccessibleSharedCategory.filter(Q(**filters)))
+        await ZRelPartyAccessibleSharedCategory.filter(Q(**filters)).delete()
 
 
     return {

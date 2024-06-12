@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS `usercredential` (
     `desc` LONGTEXT,
     `credential_type` VARCHAR(5) NOT NULL  COMMENT 'EMAIL: EMAIL\nPHONE: PHONE\nMSAL: MSAL',
     `status` VARCHAR(10),
-    `username` VARCHAR(256),
+    `username` VARCHAR(256)  UNIQUE,
     `password_hash` VARCHAR(256),
     `user_id` CHAR(36),
     CONSTRAINT `fk_usercred_user_c6044dc7` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
@@ -222,23 +222,35 @@ CREATE TABLE IF NOT EXISTS `usersession` (
     KEY `idx_usersession_access__aa6c11` (`access_token`),
     KEY `idx_usersession_refresh_033a81` (`refresh_token`)
 ) CHARACTER SET utf8mb4;
+CREATE TABLE IF NOT EXISTS `z_rel_party_accessible_shared_category` (
+    `id` INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    `created_at` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6),
+    `category_id` CHAR(36),
+    `party_id` CHAR(36),
+    CONSTRAINT `fk_z_rel_pa_category_6f1e520c` FOREIGN KEY (`category_id`) REFERENCES `category` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_z_rel_pa_party_0bb1d1fc` FOREIGN KEY (`party_id`) REFERENCES `party` (`id`) ON DELETE CASCADE
+) CHARACTER SET utf8mb4;
+CREATE TABLE IF NOT EXISTS `z_rel_role_accessible_category` (
+    `id` INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    `created_at` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6),
+    `category_id` CHAR(36),
+    `role_id` CHAR(36),
+    CONSTRAINT `fk_z_rel_ro_category_cd5417f1` FOREIGN KEY (`category_id`) REFERENCES `category` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_z_rel_ro_role_4428d7cf` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE
+) CHARACTER SET utf8mb4;
+CREATE TABLE IF NOT EXISTS `z_rel_role_permission` (
+    `id` INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    `created_at` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6),
+    `permission_id` CHAR(36),
+    `role_id` CHAR(36),
+    CONSTRAINT `fk_z_rel_ro_permissi_974707d1` FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_z_rel_ro_role_dd5d9571` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE
+) CHARACTER SET utf8mb4;
 CREATE TABLE IF NOT EXISTS `aerich` (
     `id` INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `version` VARCHAR(255) NOT NULL,
     `app` VARCHAR(100) NOT NULL,
     `content` JSON NOT NULL
-) CHARACTER SET utf8mb4;
-CREATE TABLE IF NOT EXISTS `_rel_role_permission` (
-    `permission_id` CHAR(36) NOT NULL,
-    `role_id` CHAR(36) NOT NULL,
-    FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE CASCADE,
-    FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE
-) CHARACTER SET utf8mb4;
-CREATE TABLE IF NOT EXISTS `_rel_role_accessible_category` (
-    `role_id` CHAR(36) NOT NULL,
-    `category_id` CHAR(36) NOT NULL,
-    FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE,
-    FOREIGN KEY (`category_id`) REFERENCES `category` (`id`) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4;"""
 
 

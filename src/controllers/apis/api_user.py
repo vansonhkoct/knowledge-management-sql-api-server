@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from typing import Annotated
 from tortoise.expressions import Q
 from tortoise.contrib.pydantic import pydantic_model_creator
+from tortoise.query_utils import Prefetch
 
 import sys
 import os
@@ -45,6 +46,20 @@ async def user_me(
   # )
   
   item = await KMUser.from_tortoise_orm(user)
+  item = item.model_dump()
+  
+  try:
+    item["role"]["permissions"] = [it["permission"] for it in item["role"]["ZRelRolePermission"]]
+  except:
+    pass
+  try:
+    item["role"]["accessible_categorys"] = [it["category"] for it in item["role"]["ZRelRoleAccessibleCategory"]]
+  except:
+    pass
+  try:
+    item["party"]["accessible_categorys"] = [it["category"] for it in item["role"]["ZRelPartyAccessibleSharedCategory"]]
+  except:
+    pass
 
   try:
     return {
@@ -191,8 +206,8 @@ async def fetch(
         .sql()
     )
 
-    for k in range(len(items)):
-      items[k] = await KMUser.from_tortoise_orm(items[k]) 
+    # for k in range(len(items)):
+    #   items[k] = await KMUser.from_tortoise_orm(items[k]) 
 
     return {
       "success": True,

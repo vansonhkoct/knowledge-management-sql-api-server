@@ -13,7 +13,7 @@ sys.path.append(parent_dir + "/../../")
 router = APIRouter(prefix="/api/v1")
 
 
-from models.master import Party, User, Role, Permission, Category
+from models.master import Party, User, Role, Permission, Category, ZRelRolePermission, ZRelRoleAccessibleCategory
 from controllers.functions.user.user import create_user
 from controllers.functions.user.userauth_session import fetch_loggedin_user_info
 from controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
@@ -276,59 +276,56 @@ async def party_create(
     
 
     
-    await it_role_admin.permissions.add(
-      it_permission_user_manage,
-      it_permission_file_manage,
-      it_permission_role_manage,
-      it_permission_role_accessible_category_manage,
-    )
+    await ZRelRolePermission.bulk_create([
+      ZRelRolePermission(role = it_role_admin, permission = it_permission_user_manage),
+      ZRelRolePermission(role = it_role_admin, permission = it_permission_file_manage),
+      ZRelRolePermission(role = it_role_admin, permission = it_permission_role_manage),
+      ZRelRolePermission(role = it_role_admin, permission = it_permission_role_accessible_category_manage),
+    ])
 
-    await it_role_president.permissions.add(
-      it_permission_knowledge_search,
-    )
+    await ZRelRolePermission.bulk_create([
+      ZRelRolePermission(role = it_role_president, permission = it_permission_knowledge_search),
+    ])
 
-    await it_role_executive_officer.permissions.add(
-      it_permission_knowledge_search,
-    )
+    await ZRelRolePermission.bulk_create([
+      ZRelRolePermission(role = it_role_executive_officer, permission = it_permission_knowledge_search),
+    ])
 
-    await it_role_school_affairs_officer.permissions.add(
-      it_permission_knowledge_search,
-    )
+    await ZRelRolePermission.bulk_create([
+      ZRelRolePermission(role = it_role_school_affairs_officer, permission = it_permission_knowledge_search),
+    ])
 
-    await it_role_teacher.permissions.add(
-      it_permission_knowledge_search,
-    )
+    await ZRelRolePermission.bulk_create([
+      ZRelRolePermission(role = it_role_teacher, permission = it_permission_knowledge_search),
+    ])
     
-    await it_role_president.accessible_categorys.add(
-      it_category_EDB,
-      it_category_Diocese,
-      it_category_Internal_Documents,
-      it_category_Confidential,
-      it_category_Financial,
-    )
+    await ZRelRoleAccessibleCategory.bulk_create([
+      ZRelRoleAccessibleCategory(role = it_role_president, category = it_category_EDB),
+      ZRelRoleAccessibleCategory(role = it_role_president, category = it_category_Diocese),
+      ZRelRoleAccessibleCategory(role = it_role_president, category = it_category_Internal_Documents),
+      ZRelRoleAccessibleCategory(role = it_role_president, category = it_category_Confidential),
+      ZRelRoleAccessibleCategory(role = it_role_president, category = it_category_Financial),
+    ])
     
-    await it_role_executive_officer.accessible_categorys.add(
-      it_category_EDB,
-      it_category_Diocese,
-      it_category_Internal_Documents,
-      it_category_Confidential,
-    )
+    await ZRelRoleAccessibleCategory.bulk_create([
+      ZRelRoleAccessibleCategory(role = it_role_executive_officer, category = it_category_EDB),
+      ZRelRoleAccessibleCategory(role = it_role_executive_officer, category = it_category_Diocese),
+      ZRelRoleAccessibleCategory(role = it_role_executive_officer, category = it_category_Internal_Documents),
+      ZRelRoleAccessibleCategory(role = it_role_executive_officer, category = it_category_Confidential),
+    ])
     
-    await it_role_school_affairs_officer.accessible_categorys.add(
-      it_category_EDB,
-      it_category_Diocese,
-      it_category_Internal_Documents,
-      it_category_Financial,
-    )
+    await ZRelRoleAccessibleCategory.bulk_create([
+      ZRelRoleAccessibleCategory(role = it_role_school_affairs_officer, category = it_category_EDB),
+      ZRelRoleAccessibleCategory(role = it_role_school_affairs_officer, category = it_category_Diocese),
+      ZRelRoleAccessibleCategory(role = it_role_school_affairs_officer, category = it_category_Internal_Documents),
+      ZRelRoleAccessibleCategory(role = it_role_school_affairs_officer, category = it_category_Financial),
+    ])
     
-    await it_role_teacher.accessible_categorys.add(
-      it_category_EDB,
-      it_category_Diocese,
-      it_category_Internal_Documents,
-    )
-    
-    
-    
+    await ZRelRoleAccessibleCategory.bulk_create([
+      ZRelRoleAccessibleCategory(role = it_role_teacher, category = it_category_EDB),
+      ZRelRoleAccessibleCategory(role = it_role_teacher, category = it_category_Diocese),
+      ZRelRoleAccessibleCategory(role = it_role_teacher, category = it_category_Internal_Documents),
+    ])
 
 
 

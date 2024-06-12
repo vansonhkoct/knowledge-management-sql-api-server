@@ -21,14 +21,14 @@ async def obtain_user_by_user_access_token(
   try:
     item = await UserSession.filter(**{
       "access_token": access_token,
-    }).prefetch_related("user").first()
+    }).prefetch_related("user").prefetch_related("user__role__ZRelRolePermission__permission").first()
     
     if item == None:
       raise HTTPException(
         status_code=403,
       )
 
-    await item.user.fetch_related("role__permissions")
+    # await item.user.fetch_related("role__ZRelRolePermission__permission")
     return item.user if item != None else None
 
   except Exception as e:

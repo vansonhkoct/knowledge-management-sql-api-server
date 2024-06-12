@@ -38,8 +38,8 @@ class _ModelBaseBody:
 class Role(Model, _ModelBaseAccess, _ModelBaseBody):
     party = fields.ForeignKeyField("models.Party", related_names="roles", null=True)
     code = fields.CharField(max_length=64, null=True, index=True)
-    permissions: fields.ManyToManyRelation["Permission"]
-    accessible_categorys = fields.ManyToManyField("models.Category", through="_rel_role_accessible_category", null=True)
+    # permissions: fields.ManyToManyRelation["Permission"]
+    # accessible_categorys = fields.ManyToManyField("models.Category", through="_rel_role_accessible_category", null=True)
     users: fields.ReverseRelation["User"]
     def __str__(self):
         return self.name
@@ -56,7 +56,7 @@ class Category(Model, _ModelBaseAccess, _ModelBaseBody):
     files: fields.ReverseRelation["File"]
     sub_categorys: fields.ReverseRelation["Category"]
     
-    accessible_roles: fields.ManyToManyRelation["Role"]
+    # accessible_roles: fields.ManyToManyRelation["Role"]
 
     alias = fields.CharField(max_length=512, null=True)
     folderpath_relative = fields.CharField(max_length=512, default="")
@@ -67,7 +67,7 @@ class Category(Model, _ModelBaseAccess, _ModelBaseBody):
 
 class Permission(Model, _ModelBaseAccess, _ModelBaseBody):
     code = fields.CharField(max_length=64, null=True, index=True)
-    roles = fields.ManyToManyField("models.Role", through="_rel_role_permission", null=True)
+    # roles = fields.ManyToManyField("models.Role", through="_rel_role_permission", null=True)
     def __str__(self):
         return self.name
 
@@ -101,18 +101,6 @@ class Party(Model, _ModelBaseAccess):
             "files",
         )
         
-
-class PartyAccessibleSharedCategory(Model):
-    party = fields.ForeignKeyField("models.Party", null=True, related_name="rel_PartyAccessibleSharedCategory")
-    category = fields.ForeignKeyField("models.Category", null=True, related_name="rel_PartyAccessibleSharedCategory")
-    created_at = fields.DatetimeField(auto_now_add=True)
-
-    def __str__(self):
-        return self.name
-    
-    class Meta:
-        table = "_rel_party_accessible_shared_category"
-    
 
 class User(Model, _ModelBaseAccess, _ModelBaseBody):
     role = fields.ForeignKeyField("models.Role", related_name="users", null=True)
@@ -187,6 +175,44 @@ class ChatMessageFeedback(Model, _ModelBaseAccess, _ModelBaseBody):
         return self.name
 
 
+
+class ZRelRoleAccessibleCategory(Model):
+    role = fields.ForeignKeyField("models.Role", null=True, related_name="ZRelRoleAccessibleCategory")
+    category = fields.ForeignKeyField("models.Category", null=True, related_name="ZRelRoleAccessibleCategory")
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        table = "z_rel_role_accessible_category"
+    
+    
+
+class ZRelRolePermission(Model):
+    role = fields.ForeignKeyField("models.Role", null=True, related_name="ZRelRolePermission")
+    permission = fields.ForeignKeyField("models.Permission", null=True, related_name="ZRelRolePermission")
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        table = "z_rel_role_permission"
+    
+    
+
+class ZRelPartyAccessibleSharedCategory(Model):
+    party = fields.ForeignKeyField("models.Party", null=True, related_name="ZRelPartyAccessibleSharedCategory")
+    category = fields.ForeignKeyField("models.Category", null=True, related_name="ZRelPartyAccessibleSharedCategory")
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        table = "z_rel_party_accessible_shared_category"
+    
 
 # async def run():
 

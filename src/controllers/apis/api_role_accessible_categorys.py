@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/v1")
 
 
 
-from models.master import Category, KMCategory
+from models.master import Category, KMCategory, ZRelRoleAccessibleCategory
 from models.master import Role
 from controllers.functions.user.userauth_session import fetch_loggedin_user_info
 from controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
@@ -40,7 +40,7 @@ async def fetch_role_accessible_categorys(
   request: Request,
   page: int = 0,
   limit: int = 10,
-  party_id: str = None
+  role_id: str = None,
 ):
   async def asyncjob(
     headers, user, access_token,
@@ -51,9 +51,9 @@ async def fetch_role_accessible_categorys(
     # Fetch the category items from the database using Tortoise ORM
     filters = {}
     filters["party_id"] = (user.party_id if user != None else None)
-    filters["accessible_roles__id"] = (party_id if party_id != None else user.party_id if user != None else None)
-    filters["accessible_roles__is_disabled"] = False
-    filters["accessible_roles__is_deleted"] = False
+    filters["ZRelRoleAccessibleCategory__role__id"] = role_id
+    filters["ZRelRoleAccessibleCategory__role__is_disabled"] = False
+    filters["ZRelRoleAccessibleCategory__role__is_deleted"] = False
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
@@ -101,9 +101,9 @@ async def fetch_category_accessible_roles(
     # Fetch the category items from the database using Tortoise ORM
     filters = {}
     filters["party_id"] = (user.party_id if user != None else None)
-    filters["accessible_categorys__id"] = (category_id if category_id != None else None)
-    filters["accessible_categorys__is_disabled"] = False
-    filters["accessible_categorys__is_deleted"] = False
+    filters["ZRelRoleAccessibleCategory__category__id"] = (category_id if category_id != None else None)
+    filters["ZRelRoleAccessibleCategory__category__is_disabled"] = False
+    filters["ZRelRoleAccessibleCategory__category__is_deleted"] = False
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
@@ -156,20 +156,31 @@ async def bulk_update_mappings(
 
 
 
-    # TODO: bulk add
-    for dict in add_mappings:
-      category = await Category.filter( Q(**{ "id": dict[map_key_x] }) ).first()
-      role = await Role.filter( Q(**{ "id": dict[map_key_y] }) ).first()
-      if (category != None and role != None):
-        await role.accessible_categorys.add(category)
+    # bulk add
+    add_records = [ (
+      ZRelRoleAccessibleCategory(**{
+        map_key_x: dict[map_key_x],
+        map_key_y: dict[map_key_y],
+      })
+    ) for dict in add_mappings ]
+
+    if (len(add_records) > 0):
+      await ZRelRoleAccessibleCategory.bulk_create(add_records)
 
 
-    # TODO: bulk remove
-    for dict in remove_mappings:
-      category = await Category.filter( Q(**{ "id": dict[map_key_x] }) ).first()
-      role = await Role.filter( Q(**{ "id": dict[map_key_y] }) ).first()
-      if (category != None and role != None):
-        await role.accessible_categorys.remove(category)
+
+    # bulk remove
+    grouped_remove_mappings = { key: list(it[map_key_y] for it in group) for key, group in groupby(remove_mappings, key=lambda x: x[map_key_x]) }
+
+    for key, items in grouped_remove_mappings.items():
+      
+      filters = {}
+      filters[map_key_x] = key
+      filters[f"{map_key_y}__in"] = items
+      
+      if (len(items) > 0):
+        print("deleting: " , filters , await ZRelRoleAccessibleCategory.filter(Q(**filters)))
+        await ZRelRoleAccessibleCategory.filter(Q(**filters)).delete()
 
 
     return {
