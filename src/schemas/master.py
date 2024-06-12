@@ -123,7 +123,9 @@ class User(Model, _ModelBaseAccess, _ModelBaseBody):
             "userRequests",
             "userSessions",
             "party.roles",
-            "chatMessages",
+            "userCreatedChats",
+            "userChatMessages",
+            "userChatMessageFeedbacks",
         )
 
 class UserCredential(Model, _ModelBaseAccess):
@@ -153,7 +155,8 @@ class UserRequest(Model, _ModelBaseAccess, _ModelBaseBody):
         return self.name
 
 class Chat(Model, _ModelBaseAccess):
-    categorys = fields.ForeignKeyField("models.Category", related_name="chats", null=True)
+    category = fields.ForeignKeyField("models.Category", related_name="chats", null=True)
+    userAsCreator = fields.ForeignKeyField("models.User", related_name="userCreatedChats", null=True)
     chatmessages: fields.ReverseRelation["ChatMessage"]
     prompt_prefix = fields.CharField(max_length=2048, default="")
     def __str__(self):
@@ -168,6 +171,7 @@ class ChatMessage(Model, _ModelBaseAccess, _ModelBaseBody):
 
 class ChatMessageFeedback(Model, _ModelBaseAccess, _ModelBaseBody):
     chatmessage = fields.ForeignKeyField("models.ChatMessage", related_name="chatMessageFeedbacks", null=True)
+    user = fields.ForeignKeyField("models.User", related_name="chatMessageFeedbacks", null=True)
     score = fields.IntField(null=True)
     is_like = fields.BooleanField(default=False)
     is_dislike = fields.BooleanField(default=False)

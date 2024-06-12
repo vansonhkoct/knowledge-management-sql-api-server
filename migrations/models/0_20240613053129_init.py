@@ -34,20 +34,6 @@ CREATE TABLE IF NOT EXISTS `category` (
     KEY `idx_category_is_disa_488bff` (`is_disabled`),
     KEY `idx_category_is_dele_f4470e` (`is_deleted`)
 ) CHARACTER SET utf8mb4;
-CREATE TABLE IF NOT EXISTS `chat` (
-    `id` CHAR(36) NOT NULL  PRIMARY KEY,
-    `is_disabled` BOOL NOT NULL  DEFAULT 0,
-    `is_deleted` BOOL NOT NULL  DEFAULT 0,
-    `created_at` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6),
-    `modified_at` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    `name` VARCHAR(255) NOT NULL  DEFAULT '',
-    `desc` LONGTEXT,
-    `prompt_prefix` VARCHAR(2048) NOT NULL  DEFAULT '',
-    `categorys_id` CHAR(36),
-    CONSTRAINT `fk_chat_category_7b94d315` FOREIGN KEY (`categorys_id`) REFERENCES `category` (`id`) ON DELETE CASCADE,
-    KEY `idx_chat_is_disa_1107c3` (`is_disabled`),
-    KEY `idx_chat_is_dele_2df0a7` (`is_deleted`)
-) CHARACTER SET utf8mb4;
 CREATE TABLE IF NOT EXISTS `file` (
     `id` CHAR(36) NOT NULL  PRIMARY KEY,
     `is_disabled` BOOL NOT NULL  DEFAULT 0,
@@ -125,6 +111,22 @@ CREATE TABLE IF NOT EXISTS `user` (
     KEY `idx_user_phone_c_c70cc8` (`phone_code`),
     KEY `idx_user_phone_n_c3c403` (`phone_number`)
 ) CHARACTER SET utf8mb4;
+CREATE TABLE IF NOT EXISTS `chat` (
+    `id` CHAR(36) NOT NULL  PRIMARY KEY,
+    `is_disabled` BOOL NOT NULL  DEFAULT 0,
+    `is_deleted` BOOL NOT NULL  DEFAULT 0,
+    `created_at` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6),
+    `modified_at` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    `name` VARCHAR(255) NOT NULL  DEFAULT '',
+    `desc` LONGTEXT,
+    `prompt_prefix` VARCHAR(2048) NOT NULL  DEFAULT '',
+    `category_id` CHAR(36),
+    `userAsCreator_id` CHAR(36),
+    CONSTRAINT `fk_chat_category_d78bbb45` FOREIGN KEY (`category_id`) REFERENCES `category` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_chat_user_7f671257` FOREIGN KEY (`userAsCreator_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
+    KEY `idx_chat_is_disa_1107c3` (`is_disabled`),
+    KEY `idx_chat_is_dele_2df0a7` (`is_deleted`)
+) CHARACTER SET utf8mb4;
 CREATE TABLE IF NOT EXISTS `chatmessage` (
     `id` CHAR(36) NOT NULL  PRIMARY KEY,
     `is_disabled` BOOL NOT NULL  DEFAULT 0,
@@ -156,7 +158,9 @@ CREATE TABLE IF NOT EXISTS `chatmessagefeedback` (
     `is_like` BOOL NOT NULL  DEFAULT 0,
     `is_dislike` BOOL NOT NULL  DEFAULT 0,
     `chatmessage_id` CHAR(36),
+    `user_id` CHAR(36),
     CONSTRAINT `fk_chatmess_chatmess_feecb67f` FOREIGN KEY (`chatmessage_id`) REFERENCES `chatmessage` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_chatmess_user_75fe2263` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
     KEY `idx_chatmessage_is_disa_44836c` (`is_disabled`),
     KEY `idx_chatmessage_is_dele_59b181` (`is_deleted`)
 ) CHARACTER SET utf8mb4;
