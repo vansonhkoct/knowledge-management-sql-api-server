@@ -93,6 +93,15 @@ app.include_router(router = router_role_accessible_categorys)
 from controllers.apis.api_role_permission import router as router_role_permission
 app.include_router(router = router_role_permission)
 
+from controllers.apis.api_chat import router as router_chat
+app.include_router(router = router_chat)
+
+from controllers.apis.api_chatmessage import router as router_chatmessage
+app.include_router(router = router_chatmessage)
+
+from controllers.apis.api_chatmessagefeedback import router as router_chatmessagefeedback
+app.include_router(router = router_chatmessagefeedback)
+
 
 
 
