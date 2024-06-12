@@ -31,7 +31,7 @@ async def fetch(
   limit: int = 10,
 ):
   async def asyncjob(
-    headers, user, access_token,
+    request, headers, user, access_token,
   ):
     # Calculate the offset based on the page and limit
     offset = (page) * limit
@@ -76,7 +76,7 @@ async def fetchSingle(
   id: str,
 ):
   async def asyncjob(
-    headers, user, access_token,
+    request, headers, user, access_token,
   ):
     filters = {}
     filters["id"] = id

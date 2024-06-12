@@ -63,6 +63,7 @@ async def wrapped_api_task(
     user, access_token = await fetch_loggedin_user_info(headers=headers)
     
     data = await asyncjob(
+        request=request,
         headers=headers,
         user=user,
         access_token=access_token,

@@ -43,7 +43,7 @@ async def fetch_role_accessible_categorys(
   role_id: str = None,
 ):
   async def asyncjob(
-    headers, user, access_token,
+    request, headers, user, access_token,
   ):
     # Calculate the offset based on the page and limit
     offset = (page) * limit
@@ -93,7 +93,7 @@ async def fetch_category_accessible_roles(
   category_id: str = None
 ):
   async def asyncjob(
-    headers, user, access_token,
+    request, headers, user, access_token,
   ):
     # Calculate the offset based on the page and limit
     offset = (page) * limit
