@@ -46,3 +46,4 @@ elasticsearch==8.13.1
 SQLAlchemy==2.0.30
 sqlmodel==0.0.19
 alembic==1.13.1
+mysqlclient==2.2.4
