@@ -14,9 +14,9 @@ es_logger = logger
 es_logger.setLevel(logging.DEBUG)
 
 class ElasticSearchController:
-    def __init__(self, embedding):
+    def __init__(self, embedding, config_params: ConfigParams):
         
-        self.config_params = ConfigParams()
+        self.config_params = config_params
 
         # init Elastic
         self.es_client = Elasticsearch(
@@ -34,7 +34,16 @@ class ElasticSearchController:
         return self.es_client.indices.create(index=index_name)
 
 
-    def doc_insert_text_data(self, index_name, text_data, text, chunk_size, chunk_overlap, extra_metadata):
+    def doc_insert_text_data(
+        self, 
+        index_name, 
+        text_data, 
+        text, 
+        chunk_size, 
+        chunk_overlap, 
+        extra_metadata,
+        is_testrun,
+        ):
         try:
             # try:
             #     self.doc_insert_index(index_name)
@@ -56,12 +65,70 @@ class ElasticSearchController:
                                               extra_metadata=extra_metadata)
 
             # add Langchain Document chunks to ElasticSearch instance
-            ids = es.add_documents(docs)
+            ids = es.add_documents(docs) if is_testrun is not True else []
             
             return docs, ids, index_name
         except Exception as e:
             print(e)
             raise e
+
+
+
+    def doc_insert_text_data_textraw(
+        self, 
+        index_name, 
+        text_data, 
+        text, 
+        chunk_size, 
+        chunk_overlap, 
+        extra_metadata,
+        is_testrun,
+        ):
+        try:
+            # try:
+            #     self.doc_insert_index(index_name)
+            # except:
+            #     pass
+
+            text_data, updated_text = DocumentUtils.parse_text(
+                text_data, text
+            )
+
+            # load txt file as Langchain Document chunks
+            docs = DocumentUtils.load_oc_text(updated_text, chunk_size, chunk_overlap, 
+                                              extra_metadata=extra_metadata)
+
+
+            ids = []
+            
+            if not is_testrun:
+                for k in range(len(docs)):
+                    header = f"""{docs[k].metadata["document_remarks"]}
+{docs[k].metadata["document_title"]}
+{docs[k].metadata["document_summary"]}"""
+                    header_vector = self.embedding.embed_query(header)
+                    
+                    text = f"{docs[k].page_content}"
+                    vector = self.embedding.embed_query(text)
+                    
+                    id = self.es_client.index(
+                        index=index_name,
+                        body={
+                            "header": header,
+                            "header_vector": header_vector,
+                            "text": text,
+                            "vector": vector,
+                            "metadata": docs[k].metadata,
+                        },
+                    )
+                    ids.append(id)
+            
+            return docs, ids, index_name
+        except Exception as e:
+            print(e)
+            raise e
+
+
 
 
     def doc_update_document_metadata(

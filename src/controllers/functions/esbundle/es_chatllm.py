@@ -1,5 +1,5 @@
 
-from .include.py_any2text_parser.pdf2text import extract_pdf_file_to_text
+from .include.py_any2text_parser.pdf2text import extract_pdf_file_to_text, async_extract_pdf_file_to_text
 from .include.ConfigParams import ConfigParams
 from .include.ChatLLM import ChatLLMAnswerResult, ChatLLM
 from .include.EmbeddingsBundle import EmbeddingsBundle
@@ -53,7 +53,7 @@ class _SingleTon:
         # Init ElasticSearch
         
         self.embedding_instance = EmbeddingsBundle(model_path = self.config_params.embedding_model)
-        self.es_controller = ElasticSearchController(embedding = self.embedding_instance)
+        self.es_controller = ElasticSearchController(embedding = self.embedding_instance, config_params = self.config_params)
 
 
 
@@ -80,6 +80,7 @@ class _SingleTon:
         chunk_size = 300, 
         chunk_overlap = 10, 
         extra_metadata = {},
+        is_testrun = False,
     ):
         def fn(
             index_name,
@@ -96,6 +97,7 @@ class _SingleTon:
                 chunk_size = chunk_size, 
                 chunk_overlap = chunk_overlap,
                 extra_metadata = extra_metadata,
+                is_testrun = is_testrun,
             )
 
             return docs, ids, _index_name
@@ -112,6 +114,53 @@ class _SingleTon:
             )
         
         return docs, ids, _index_name
+
+
+
+
+    async def bot_es_add_document_testraw(
+        self,
+        index_name, 
+        text_data,
+        text,
+        chunk_size = 300, 
+        chunk_overlap = 10, 
+        extra_metadata = {},
+        is_testrun = False,
+    ):
+        def fn(
+            index_name,
+            text_data,
+            text,
+            chunk_size = 300, 
+            chunk_overlap = 10, 
+            ):
+            
+            docs, ids, _index_name = self.es_controller.doc_insert_text_data_textraw(
+                index_name = index_name,
+                text_data = text_data,
+                text = text,
+                chunk_size = chunk_size, 
+                chunk_overlap = chunk_overlap,
+                extra_metadata = extra_metadata,
+                is_testrun = is_testrun,
+            )
+
+            return docs, ids, _index_name
+
+        loop = asyncio.get_running_loop()
+        docs, ids, _index_name = await loop.run_in_executor(
+            None,
+            fn,
+            index_name,
+            text_data,
+            text,
+            chunk_size,
+            chunk_overlap,
+            )
+        
+        return docs, ids, _index_name
+
 
 
 

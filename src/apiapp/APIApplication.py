@@ -60,6 +60,9 @@ register_tortoise(
 from controllers.apis.api_file import router as router_file
 app.include_router(router = router_file)
 
+from controllers.apis.api_file_estest import router as router_file_estest
+app.include_router(router = router_file_estest)
+
 from controllers.apis.api_health import router as router_health
 app.include_router(router = router_health)
 

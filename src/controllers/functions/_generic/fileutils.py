@@ -58,6 +58,14 @@ async def remove_file_from_upload_folder(
 
 
 
+def load_uploaded_file(
+  filename: str,
+):
+  filepath = f"{default_upload_dir}{filename}"
+  return open(filepath, "rb")
+
+
+
 def makeSafeFilename(original_filename):
   object_id = str(ObjectId())
   

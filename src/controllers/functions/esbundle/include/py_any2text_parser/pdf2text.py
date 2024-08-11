@@ -21,6 +21,9 @@ from typing import (
 from tempfile import SpooledTemporaryFile
 import json
 
+import asyncio
+
+
 def extract_pdf_file_to_text(
     filename: str = None,
     file: Optional[Union[BinaryIO, SpooledTemporaryFile]] = None,
@@ -76,4 +79,25 @@ def extract_pdf_file_to_text(
 
     return filtered_text_data, text
 
+
+
+async def async_extract_pdf_file_to_text(
+    filename: str = None,
+    file: Optional[Union[BinaryIO, SpooledTemporaryFile]] = None,
+    meta_data_mapping = None,
+):
+    def fn():
+        filtered_text_data, text = extract_pdf_file_to_text(
+            filename=filename,
+            file=file,
+            meta_data_mapping=meta_data_mapping,
+        )
+        return filtered_text_data, text
+
+    loop = asyncio.get_running_loop()
+    filtered_text_data, text = await loop.run_in_executor(
+        None, 
+        fn, 
+        )
+    return filtered_text_data, text
 
