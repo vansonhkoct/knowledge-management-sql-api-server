@@ -16,10 +16,10 @@ import copy
 parent_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(parent_dir + "/../")
 
-from database import TORTOISE_ORM
+from database import SQLALCHEMY_ORM
 
 
-dbConfig = copy.deepcopy(TORTOISE_ORM)
+dbConfig = copy.deepcopy(SQLALCHEMY_ORM)
 dbConfig["apps"]["models"]["models"] = [
     "schemas.master",
     "aerich.models",
