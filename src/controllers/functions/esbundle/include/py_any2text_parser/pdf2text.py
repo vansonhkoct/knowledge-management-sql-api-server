@@ -65,8 +65,11 @@ def extract_pdf_file_to_text(
     sparse_dict = create_sparse_dict_of_overall_table_layouts(text_data, table_layouts_data)
     
     # export_sparse_dict_representation_as_csv(sparse_dict, filename)
-        
-    estimate_tables_and_update_text_data_by_sparse_dict(sparse_dict)
+    try:
+        estimate_tables_and_update_text_data_by_sparse_dict(sparse_dict)
+    except Exception as e:
+        print(e)
+        pass
     
     filtered_text_data = obtain_filtered_text_data(text_data)
 

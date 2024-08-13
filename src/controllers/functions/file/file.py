@@ -20,7 +20,7 @@ def bootstrapImportESBundle():
   global extract_pdf_file_to_text
   
   if (ESChatLLM == None):
-    from controllers.functions.esbundle.es_chatllm import ESChatLLM as _ESChatLLM
+    import controllers.functions.esbundle.es_chatllm as _ESChatLLM
     ESChatLLM = _ESChatLLM
     
   if (extract_pdf_file_to_text == None):

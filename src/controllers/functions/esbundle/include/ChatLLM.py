@@ -23,14 +23,19 @@ class ChatLLM(LLM):
     tokenizer: object = None
     model: object = None
     
+    
+    
     def __init__(self, config_params):
         super().__init__()
         self.model_path = config_params.llm_model
-        self.model_gpu = config_params.llm_model_gpu
+        self.model_gpu = config_params.llm_model_uses_gpu
 
     @property
     def _llm_type(self) -> str:
         return "ChatLLM"
+
+
+
 
     def load_llm(self):
         print("A")
@@ -50,9 +55,12 @@ class ChatLLM(LLM):
                 self.model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True).cuda()
             else:
                 self.model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True).float()
+                # self.model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True).half()
             print("B3")
             self.model = self.model.eval()
             print("B4")
+
+
 
     def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
         print(f"__call:{prompt}")
@@ -68,7 +76,10 @@ class ChatLLM(LLM):
         print(f"+++++++++++++++++++++++++++++++++++")
         return response
 
-    def generatorAnswer(self, prompt: str,
+
+
+
+    def generator_answer(self, prompt: str,
                         history: List[List[str]] = [],
                         streaming: bool = False):
 

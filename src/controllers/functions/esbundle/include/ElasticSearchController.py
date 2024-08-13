@@ -9,6 +9,7 @@ from typing import Dict
 from .ConfigParams import ConfigParams
 from .DocumentUtils import DocumentUtils
 from .ElasticSearchQueryUtils import ElasticSearchQueryUtils
+from .ElasticSearchDao import DocInsert, DocUpdate
 
 es_logger = logger
 es_logger.setLevel(logging.DEBUG)
@@ -30,11 +31,7 @@ class ElasticSearchController:
         self.embedding = embedding
         
 
-    def doc_insert_index(self, index_name):
-        return self.es_client.indices.create(index=index_name)
-
-
-    def doc_insert_text_data(
+    def doc_insert_text_data_legacy(
         self, 
         index_name, 
         text_data, 
@@ -45,85 +42,51 @@ class ElasticSearchController:
         is_testrun,
         ):
         try:
-            # try:
-            #     self.doc_insert_index(index_name)
-            # except:
-            #     pass
-            
-            es = ElasticsearchStore(
-                index_name=index_name, 
-                embedding=self.embedding,
-                es_connection=self.es_client,
+            docs = DocInsert.doc_insert_text_data_legacy(
+                DocumentUtils = DocumentUtils,
+                embedding = self.embedding,
+                es_client = self.es_client,
+                index_name = index_name, 
+                text_data = text_data, 
+                text = text, 
+                chunk_size = chunk_size, 
+                chunk_overlap = chunk_overlap, 
+                extra_metadata = extra_metadata,
+                is_testrun = is_testrun,
             )
-    
-            text_data, updated_text = DocumentUtils.parse_text(
-                text_data, text
-            )
-
-            # load txt file as Langchain Document chunks
-            docs = DocumentUtils.load_oc_text(updated_text, chunk_size, chunk_overlap, 
-                                              extra_metadata=extra_metadata)
-
-            # add Langchain Document chunks to ElasticSearch instance
-            ids = es.add_documents(docs) if is_testrun is not True else []
-            
-            return docs, ids, index_name
+            return docs
         except Exception as e:
             print(e)
             raise e
 
 
 
-    def doc_insert_text_data_textraw(
+    # doc_insert_text_data_strat_20240812 stores the text data by
+    # page content, document header, and combination of (page content + document header)
+    def doc_insert_text_data_strat_20240812(
         self, 
         index_name, 
         text_data, 
         text, 
-        chunk_size, 
-        chunk_overlap, 
+        chunk_size,
+        chunk_overlap,
         extra_metadata,
         is_testrun,
         ):
         try:
-            # try:
-            #     self.doc_insert_index(index_name)
-            # except:
-            #     pass
-
-            text_data, updated_text = DocumentUtils.parse_text(
-                text_data, text
+            docs = DocInsert.doc_insert_text_data_strat_20240812(
+                DocumentUtils = DocumentUtils,
+                embedding = self.embedding,
+                es_client = self.es_client,
+                index_name = index_name, 
+                text_data = text_data, 
+                text = text, 
+                chunk_size = chunk_size, 
+                chunk_overlap = chunk_overlap, 
+                extra_metadata = extra_metadata,
+                is_testrun = is_testrun,
             )
-
-            # load txt file as Langchain Document chunks
-            docs = DocumentUtils.load_oc_text(updated_text, chunk_size, chunk_overlap, 
-                                              extra_metadata=extra_metadata)
-
-
-            ids = []
-            
-            if not is_testrun:
-                for k in range(len(docs)):
-                    header = f"""{docs[k].metadata["document_remarks"]}
-{docs[k].metadata["document_title"]}
-{docs[k].metadata["document_summary"]}"""
-                    header_vector = self.embedding.embed_query(header)
-                    
-                    text = f"{docs[k].page_content}"
-                    vector = self.embedding.embed_query(text)
-                    
-                    id = self.es_client.index(
-                        index=index_name,
-                        body={
-                            "header": header,
-                            "header_vector": header_vector,
-                            "text": text,
-                            "vector": vector,
-                            "metadata": docs[k].metadata,
-                        },
-                    )
-                    ids.append(id)
-            
-            return docs, ids, index_name
+            return docs
         except Exception as e:
             print(e)
             raise e
@@ -138,17 +101,12 @@ class ElasticSearchController:
         document_category,
         document_tags,
     ):
-        return self.es_client.update(
-            index=index_name,
-            id=id,
-            body={
-                'doc': {
-                    'metadata': {
-                        "document_category": document_category,
-                        "document_tags": document_tags,
-                    }
-                }
-            }
+        return DocUpdate.doc_update_document_metadata(
+            es_client = self.es_client,
+            index_name = index_name,
+            id = id,
+            document_category = document_category,
+            document_tags = document_tags,
         )
 
 
@@ -158,14 +116,11 @@ class ElasticSearchController:
         id,
         metadata,
     ):
-        return self.es_client.update(
-            index=index_name,
-            id=id,
-            body={
-                'doc': {
-                    'metadata': metadata,
-                }
-            }
+        return DocUpdate.doc_update_document_metadata_free(
+            es_client = self.es_client,
+            index_name = index_name,
+            id = id,
+            metadata = metadata,
         )
 
 
@@ -187,6 +142,35 @@ class ElasticSearchController:
             return None
 
 
+
+    def doc_get_document_es_ids_by_document_file_id(
+        self,
+        index_name,
+        document_file_id,
+    ):
+        query = {
+           "query": {
+                "term": {
+                    "metadata.document_file_id.keyword": document_file_id,
+                },
+            },
+        }
+
+        response = self.es_client.search(index=index_name, body=query)
+        res_body = response.body
+        res_body_hits_list = res_body["hits"]["hits"]
+
+        result = []
+
+        for i in res_body_hits_list:
+            result.append(i["_id"])
+
+        return result
+
+
+
+
+
     def doc_delete_document_by_id(
         self,
         index_name, 
@@ -196,6 +180,9 @@ class ElasticSearchController:
             index=index_name,
             id=id,
         )
+
+
+
 
     def doc_search(self, index_name, method, query, top_k, knn_boost, document_category):
         result = []
@@ -226,6 +213,8 @@ class ElasticSearchController:
         return result
 
 
+
+
     def doc_search_custom_query(self, index_name, query, query_body_fn):
         result = []
 
@@ -248,10 +237,61 @@ class ElasticSearchController:
             })
             
         return result
-        
+
+
     def doc_search_simple_query(self, index_name, query_body):
         response = self.es_client.search(index=index_name, body=query_body)
         return response
+    
+    
+    def doc_search_multi_vector_string_fields(self, index_name, query_strings, knn_boosts, document_category, k, num_candidates):
+        result = []
+
+        embedding_function = (
+            self.embedding.embed_query if (str(index_name).startswith("t20240812_a_mbase_"))
+            else self.embedding.embed_query_legacy
+        )
+
+        query_body = ElasticSearchQueryUtils.generate_multi_vector_knn_by_query_string_fields(
+            embedding_function=embedding_function,
+            query_strings=query_strings,
+            knn_boosts=knn_boosts,
+            document_category=document_category,
+            k=k,
+            num_candidates=num_candidates,
+        )
+        
+        # Run query
+        response = self.es_client.search(index=index_name, body=query_body)
+        
+
+        # Extract hits
+        res_body = response.body
+        res_body_hits_total_stats = res_body["hits"]["total"]
+        res_body_hits_max_score = res_body["hits"]["max_score"]
+        res_body_hits_list = res_body["hits"]["hits"]
+
+        if (str(index_name).startswith("t20240812_a_mbase_")):
+            for i in res_body_hits_list:
+                result.append({
+                    'score': i['_score'],
+                    'header': i['_source']['document_header'],
+                    'content': i['_source']['page_content'],
+                    'metadata': i['_source']['metadata'],
+                })
+        else:
+            for i in res_body_hits_list:
+                result.append({
+                    'score': i['_score'],
+                    'content': i['_source']['text'],
+                    'metadata': i['_source']['metadata'],
+                })
+            
+        return result
+        
+
+
+
 
 
     def index_get_mapping(self, index_name):
@@ -270,3 +310,38 @@ class ElasticSearchController:
         )
 
 
+
+    def delete_all_documents(self, index_name):
+        """
+        Deletes all documents inside the specified Elasticsearch index.
+        """
+
+        try:
+            # Get the total number of documents in the index
+            total_docs = self.es_client.count(index=index_name)['count']
+            print(f"Total documents in '{index_name}' index: {total_docs}")
+
+            # Delete all documents in batches of 1000
+            batch_size = 1000
+            num_batches = (total_docs + batch_size - 1) // batch_size
+
+            for batch_num in range(num_batches):
+                start = batch_num * batch_size
+                end = min((batch_num + 1) * batch_size, total_docs)
+                print(f"Deleting documents {start} to {end-1} in batch {batch_num+1}/{num_batches}")
+
+                # Use the `delete_by_query` API to delete the documents in batches
+                self.es_client.delete_by_query(
+                    index=index_name,
+                    body={
+                        "query": {
+                            "match_all": {}
+                        }
+                    },
+                    size=batch_size,
+                    from_=start
+                )
+
+            print(f"All documents in '{index_name}' index have been deleted.")
+        except Exception as e:
+            print(f"Error deleting documents: {e}")

@@ -161,7 +161,7 @@ async def test_reparse_file_as_docs(
 
       print("\n==== PART 1 ===\n")
 
-      from controllers.functions.esbundle.es_chatllm import ESChatLLM
+      import controllers.functions.esbundle.es_chatllm as ESChatLLM
       from controllers.functions.esbundle.es_chatllm import async_extract_pdf_file_to_text
       import nltk
       nltk.download('punkt_tab')
@@ -194,7 +194,7 @@ async def test_reparse_file_as_docs(
       print("\n==== PART 4 ===\n")
 
       docs, ids, index_name = await ESChatLLM.bot_es_add_document_testraw(
-        index_name=f"test_{str(item.party_id)}",
+        index_name=str(item.party_id),
         text_data=text_data,
         text=text,
         extra_metadata={
@@ -204,8 +204,7 @@ async def test_reparse_file_as_docs(
             "document_remarks": document_remarks,
         },
         is_testrun=False,
-        chunk_size=2048,
-        chunk_overlap=256,
+        use_text_splitter=False,
       )
 
   return {
@@ -221,5 +220,156 @@ async def test_reparse_file_as_docs(
       "r_file": r_file.name,
       "es_docs": es_docs,
     },
+  }
+
+
+@router.post("/file_estest/test_reparse_all_files_as_docs")
+async def test_reparse_all_files_as_docs(
+  request: Request,
+):
+  data = await request.json()
+
+
+  items = (
+    await File
+      .filter(Q(**{
+        "category_id": "ed6042cf-17ac-4e9c-b224-23273f8a5f80",
+      }))
+  )
+
+
+
+  print("\n==== PART 1 ===\n")
+
+  import controllers.functions.esbundle.es_chatllm as ESChatLLM
+  from controllers.functions.esbundle.es_chatllm import async_extract_pdf_file_to_text
+  import nltk
+  nltk.download('punkt_tab')
+  nltk.download('averaged_perceptron_tagger_eng')
+  
+
+
+  print ("\n==== PART 0 clean ===\n")
+  await ESChatLLM.bot_es_delete_all_documents("t20240812_a_mbase_56e0a540-fb4f-40b6-acdd-d325d3d0fd65")
+  await ESChatLLM.bot_es_delete_all_documents("t20240812_a_mbase_totaldoc_56e0a540-fb4f-40b6-acdd-d325d3d0fd65")
+  
+  print ("\n==== PART 0 cleaned ===\n")
+
+  
+  for item in items:
+    
+    es_docs = []
+    r_file = None
+    
+    if (item != None):
+      es_docs = await fetch_es_docs(
+        party_id=item.party_id,
+        file=item,
+      )
+
+      r_file = load_uploaded_file(filename=item.filename)
+      
+      if r_file is not None:
+
+        print("\n==== PART 2 ===\n")
+        
+        text_data, text = await async_extract_pdf_file_to_text(
+          filename=item.filename,
+          file=r_file,
+          meta_data_mapping = {
+              "document_file_id": str(item.id) if item.id != None else "",
+              "document_category": str(item.category_id) if item.category_id != None else "",
+          }
+        )
+        
+        print("\n==== PART 3 ===\n")
+
+        document_tags = []
+        document_title = None
+        document_summary = None
+        document_remarks = None
+
+        if es_docs is not None and len(es_docs) > 0:
+          document_tags = es_docs[0]["metadata"]["document_tags"] if ("metadata" in es_docs[0] and "document_tags" in es_docs[0]["metadata"] ) else document_tags
+          document_title = es_docs[0]["metadata"]["document_title"] if ("metadata" in es_docs[0] and "document_title" in es_docs[0]["metadata"] ) else document_title
+          document_summary = es_docs[0]["metadata"]["document_summary"] if ("metadata" in es_docs[0] and "document_summary" in es_docs[0]["metadata"] ) else document_summary
+          document_remarks = es_docs[0]["metadata"]["document_remarks"] if ("metadata" in es_docs[0] and "document_remarks" in es_docs[0]["metadata"] ) else document_remarks
+
+        print("\n==== PART 4 ===\n")
+
+        docs, ids, index_name = await ESChatLLM.bot_es_add_document_testraw(
+          index_name=str(item.party_id),
+          text_data=text_data,
+          text=text,
+          extra_metadata={
+              "document_tags": document_tags,
+              "document_title": document_title,
+              "document_summary": document_summary,
+              "document_remarks": document_remarks,
+          },
+          is_testrun=False,
+          use_text_splitter=False,
+        )
+
+  return {
+    "success": True,
+    "message": TAG_C001,
+    # "esparsedata": {
+    #   "ids": ids,
+    #   "docs": docs,
+    #   "index_name": index_name,
+    # },
+    # "data": {
+    #   "item": item,
+    #   "r_file": r_file.name,
+    #   "es_docs": es_docs,
+    # },
+  }
+
+
+
+@router.post("/file_estest/test_search_by_multi_vector_query_strings")
+async def test_search_by_multi_vector_query_strings(
+  request: Request,
+):
+  import controllers.functions.esbundle.es_chatllm as ESChatLLM
+
+  data = await request.json()
+
+  result = await ESChatLLM.bot_es_search_multi_vector_string_fields(
+    index_name=data["index_name"],
+    query_strings=data["query_strings"],
+    knn_boosts=data["knn_boosts"],
+    document_category=data["document_category"],
+    k=data["k"],
+    num_candidates=data["num_candidates"],
+  )
+
+  return {
+    "success": True,
+    "message": TAG_C001,
+    "data": result,
+  }
+  
+  
+
+
+@router.post("/file_estest/get_es_doc_ids_by_document_file_id")
+async def test_get_es_doc_ids_by_document_file_id(
+  request: Request,
+):
+  import controllers.functions.esbundle.es_chatllm as ESChatLLM
+
+  data = await request.json()
+
+  result = await ESChatLLM.bot_get_es_doc_ids_document_es_ids_by_document_file_id(
+    index_name=data["index_name"],
+    document_file_id=data["document_file_id"],
+  )
+
+  return {
+    "success": True,
+    "message": TAG_C001,
+    "data": result,
   }
   

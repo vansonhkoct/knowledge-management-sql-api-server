@@ -42,3 +42,5 @@ pikepdf==8.15.1
 opencv-python==4.8.1.78
 opencv-contrib-python==4.8.1.78
 elasticsearch==8.13.1
+opencc==1.1.9
+

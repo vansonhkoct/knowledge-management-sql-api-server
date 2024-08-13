@@ -1,3 +1,8 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+PORT = os.getenv("PORT")
 
 
 if __name__ == '__main__':
@@ -6,7 +11,7 @@ if __name__ == '__main__':
 
   uvicorn.run(
     "src.main:app", 
-    port=17891, 
+    port=int(PORT) if PORT is not None and PORT != "" else 17891, 
     reload=True, 
     access_log=False,
   )
