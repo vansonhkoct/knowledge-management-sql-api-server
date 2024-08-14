@@ -242,6 +242,7 @@ async def test_reparse_file_as_docs(
     await File
       .filter(Q(**{
         "id": id,
+        "is_deleted": False,
       }))
       .prefetch_related()
       .first()
@@ -293,6 +294,7 @@ async def test_reparse_all_files_as_docs(
     await File
       .filter(Q(**{
         "party_id": party_id,
+        "is_deleted": False,
       }))
   )
 
@@ -300,7 +302,9 @@ async def test_reparse_all_files_as_docs(
 
   print("\n==== PART 1 ===\n")
 
-
+  file_count = 0
+  docs_count = 0
+  ids_count = 0
   
   for item in items:
     
@@ -311,24 +315,31 @@ async def test_reparse_all_files_as_docs(
       
       if r_file is not None:
         
-        docs, ids, index_name = __reparse_file_as_docs(
+        docs, ids, index_name = await __reparse_file_as_docs(
           item = item,
           r_file = r_file,
           is_testrun = is_testrun,
         )
         
+        docs_count += len(docs)
+        ids_count += len(ids)
+
+    file_count += 1
+    
+    print({
+      "ids_count": ids_count,
+      "docs_count": docs_count,
+      "file_count": file_count,
+    })
+
   return {
     "success": True,
     "message": TAG_C001,
-    # "esparsedata": {
-    #   "ids": ids,
-    #   "index_name": index_name,
-    #   "docs": docs,
-    # },
-    # "data": {
-    #   "item": item,
-    #   "r_file": r_file.name,
-    # },
+    "data": {
+      "ids_count": ids_count,
+      "docs_count": docs_count,
+      "file_count": file_count,
+    },
   }
 
 
@@ -484,10 +495,34 @@ async def test_bot_llm_ask_question(
   aggregated_context = []
   
   for key_file_id in group_filtered_es_result.keys():
-    document_header = f"\n\n---------\n{it["metadata"]["document_remarks"]}\n{it["metadata"]["document_title"]}\n{it["metadata"]["document_summary"]}\n"
-    document_footer = f"\n\n----------\n\n"
+    document_header = f"""
+
+
+---------
+{it["metadata"]["document_remarks"]}
+{it["metadata"]["document_title"]}
+{it["metadata"]["document_summary"]}
+
+"""
+    document_footer = '\n\n----------\n\n'
     document_content_array = [ it["content"] for it in group_filtered_es_result[key_file_id] ]
-    document_content = f"\n ... \n { "\n ... \n".join(document_content_array) } \n ... \n"
+    document_content = (
+"""
+
+...
+
+""".join(document_content_array)
+
+)
+    document_content = f"""
+
+...
+
+{document_content}
+
+...
+
+"""
 
     aggregated_context.append(document_header)
     aggregated_context.append(document_content)

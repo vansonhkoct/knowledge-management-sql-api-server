@@ -8,7 +8,7 @@ def doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk(
     es_client: Elasticsearch,
     index_name: str, 
 ):
-    ConfigParams.es_dbg("doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk -> source", f"\n{source}\n")
+    ConfigParams.es_dbg("doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk -> source")
     
     return es_client.update_by_query(
         index=f"{_constants.ES_INDEX_ACTIVE_GLOBAL_PREFIX}{str(index_name)}",

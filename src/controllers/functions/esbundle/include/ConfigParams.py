@@ -25,9 +25,9 @@ print("---\n")
         
 def es_dbg(head = "", body = ""):
     if es_debug:
-        print(f"[ES] {datetime.now().strftime("%Y-%m-%d_%H-%M-%S")} {head} - {body}")
+        print(f'[ES] {datetime.now().strftime("%Y-%m-%d_%H-%M-%S")} {head} - {body}')
 
 def llm_dbg(head = "", body = ""):
     if es_debug:
-        print(f"[ChatLLM] {datetime.now().strftime("%Y-%m-%d_%H-%M-%S")} {head} - {body}")
+        print(f'[ChatLLM] {datetime.now().strftime("%Y-%m-%d_%H-%M-%S")} {head} - {body}')
 

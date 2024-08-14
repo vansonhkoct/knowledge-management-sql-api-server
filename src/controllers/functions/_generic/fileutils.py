@@ -5,7 +5,8 @@ import re
 import unicodedata
 
 parent_dir = os.path.dirname(os.path.realpath(__file__))
-default_upload_dir = parent_dir + "/../../../../upload/"
+default_upload_dir = os.getenv("FILE_UPLOAD_ABSOLUTE_PATH") 
+default_upload_dir = default_upload_dir if default_upload_dir is not None else (parent_dir + "/../../../../upload/")
 
 class UploadFileRecord:
   def __init__(self, alias: str, filepath: str, filename: str, filesize: int, mimetype: str):

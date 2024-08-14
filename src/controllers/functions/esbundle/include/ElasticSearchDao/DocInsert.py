@@ -98,11 +98,11 @@ def doc_insert_text_data_strat_2(
         if not voDocInsert.is_testrun:
             
             document_header_candidates = []
-            if ("document_remarks" in docs_by_page[0].metadata):
+            if ("document_remarks" in docs_by_page[0].metadata and docs_by_page[0].metadata["document_remarks"] is not None):
                 document_header_candidates.append(docs_by_page[0].metadata["document_remarks"])
-            if ("document_title" in docs_by_page[0].metadata):
+            if ("document_title" in docs_by_page[0].metadata and docs_by_page[0].metadata["document_title"] is not None):
                 document_header_candidates.append(docs_by_page[0].metadata["document_title"])
-            if ("document_summary" in docs_by_page[0].metadata):
+            if ("document_summary" in docs_by_page[0].metadata and docs_by_page[0].metadata["document_summary"] is not None):
                 document_header_candidates.append(docs_by_page[0].metadata["document_summary"])
 
             document_header = "\n".join(document_header_candidates)
