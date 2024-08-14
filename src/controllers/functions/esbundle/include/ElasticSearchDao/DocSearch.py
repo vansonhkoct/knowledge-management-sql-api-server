@@ -23,8 +23,10 @@ def doc_search_multi_vector(
         num_candidates = voDocSearch.num_candidates,
     )
     
+    index_name = f"{_constants.ES_INDEX_ACTIVE_GLOBAL_PREFIX}{voDocSearch.index_name}"
+    
     # Run query
-    response = es_client.search(index=voDocSearch.index_name, body=query_body)
+    response = es_client.search(index=index_name, body=query_body)
     
 
     # Extract hits
@@ -55,6 +57,19 @@ def doc_search_multi_vector(
         })
 
     return result
+    
+
+
+
+def doc_search_any_query(
+    index_name: str,
+    query: dict,
+    es_client: Elasticsearch):
+    
+    _index_name = f"{_constants.ES_INDEX_ACTIVE_GLOBAL_PREFIX}{index_name}"
+    
+    response = es_client.search(index=_index_name, body=query)
+    return response
     
 
 

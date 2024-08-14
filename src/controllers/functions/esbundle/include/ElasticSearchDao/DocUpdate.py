@@ -1,6 +1,7 @@
 
 
 from elasticsearch import Elasticsearch
+from . import _constants
 
 
 def doc_update_document_metadata(
@@ -10,8 +11,10 @@ def doc_update_document_metadata(
     document_category: str,
     document_tags: list[str],
 ):
+    _index_name = f"{_constants.ES_INDEX_ACTIVE_GLOBAL_PREFIX}{index_name}"
+
     return es_client.update(
-        index=index_name,
+        index=_index_name,
         id=id,
         body={
             'doc': {
@@ -30,8 +33,10 @@ def doc_update_document_metadata_free(
     id: str,
     metadata: dict,
 ):
+    _index_name = f"{_constants.ES_INDEX_ACTIVE_GLOBAL_PREFIX}{index_name}"
+
     return es_client.update(
-        index=index_name,
+        index=_index_name,
         id=id,
         body={
             'doc': {

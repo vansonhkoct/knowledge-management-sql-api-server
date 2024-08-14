@@ -118,7 +118,7 @@ async def load_api_file(
   es_docs = []
   r_file = None
   
-  if (item != None):
+  if (item is not None):
     es_docs = await fetch_es_docs(
       party_id=item.party_id,
       file=item,
@@ -138,6 +138,96 @@ async def load_api_file(
 
 
 
+async def __reparse_file_as_docs(
+  item: File,
+  r_file,
+  is_testrun,
+):
+  print("\n==== PART 1 ===\n")
+
+  
+  print("\n==== PART 2 ===\n")
+  
+  text_data, text = await ESChatLLM.async_extract_pdf_file_to_text(
+    filename=item.filename,
+    file=r_file,
+    meta_data_mapping = {
+        "document_file_id": str(item.id) if item.id is not None else "",
+        "document_category": str(item.category_id) if item.category_id is not None else "",
+    }
+  )
+  
+  print("\n==== PART 3 ===\n")
+
+  old_doc_ids = await ESChatLLM.bot_es_get_document_es_ids_by_document_file_id(
+    index_name=str(item.party_id),
+    document_file_id=item.id,
+    data_strategy="1",
+  )
+
+  old_doc_ids_strat_2 = await ESChatLLM.bot_es_get_document_es_ids_by_document_file_id(
+    index_name=str(item.party_id),
+    document_file_id=item.id,
+    data_strategy="2",
+  )
+
+  print(f"\n==== PART 3 === obtained old_dic_ids: {old_doc_ids}\n")
+  
+  extra_metadata = {}
+  
+  if len(old_doc_ids) > 0:
+    doc = await ESChatLLM.bot_es_get_document_by_id(
+      index_name=str(item.party_id),
+      id=old_doc_ids[0],
+    )
+
+    extra_metadata = {
+        "document_tags": doc["metadata"]["document_tags"] if "metadata" in doc and "document_tags" in doc["metadata"] else None,
+        "document_title": doc["metadata"]["document_title"] if "metadata" in doc and "document_title" in doc["metadata"] else None,
+        "document_summary": doc["metadata"]["document_summary"] if "metadata" in doc and "document_summary" in doc["metadata"] else None,
+        "document_remarks": doc["metadata"]["document_remarks"] if "metadata" in doc and "document_remarks" in doc["metadata"] else None,
+    }
+    
+  print(f"\n==== PART 3 === extra metadata: {extra_metadata} \n")
+    
+
+  print(f"\n==== PART 4 === attempting adding into {item.party_id}")
+  
+  vo = ESVoDocInsert(
+    index_name = str(item.party_id),
+    text_data = text_data,
+    text = text,
+    extra_metadata = extra_metadata,
+    is_testrun = is_testrun,
+  )
+  
+  docs, new_ids, index_name = await ESChatLLM.bot_es_add_document(
+    vo=vo,
+  )
+  print(f"\n==== PART 4 === attempting added into {item.party_id}: {new_ids}")
+
+  if not is_testrun and item is not None and item.id is not None and new_ids is not None:
+    print(f"\n==== PART 4 === attempt save into es_doc_ids of {item.id}")
+    item.es_doc_ids = ",".join(new_ids)
+    await item.save()
+    print(f"\n==== PART 4 === done save into es_doc_ids of {item.id}: {new_ids}")
+
+  
+  if not is_testrun and item is not None and item.id is not None:
+    print(f"\n==== PART 4 === attempting remove from {item.party_id}: {old_doc_ids_strat_2}")
+          
+    for id in old_doc_ids_strat_2:
+      print(f"\n==== PART 4 === attempting remove from {item.party_id}: {id}")
+      await ESChatLLM.bot_es_delete_document_by_id(
+        index_name=str(item.party_id),
+        id=id,
+      )
+
+
+  return docs, new_ids, index_name
+
+
+
 
 @router.post("/file_estest/test_reparse_file_as_docs")
 async def test_reparse_file_as_docs(
@@ -145,6 +235,7 @@ async def test_reparse_file_as_docs(
 ):
   data = await request.json()
   id = data["id"]
+  is_testrun = data["is_testrun"]
 
 
   item = (
@@ -156,71 +247,37 @@ async def test_reparse_file_as_docs(
       .first()
   )
 
-  es_docs = []
   r_file = None
   
-  if (item != None):
-    es_docs = await fetch_es_docs(
-      party_id=item.party_id,
-      file=item,
-    )
+  if (item is not None):
 
     r_file = load_uploaded_file(filename=item.filename)
 
     if r_file is not None:
 
-      print("\n==== PART 1 ===\n")
-
-      
-      print("\n==== PART 2 ===\n")
-      
-      text_data, text = await ESChatLLM.async_extract_pdf_file_to_text(
-        filename=item.filename,
-        file=r_file,
-        meta_data_mapping = {
-            "document_file_id": str(item.id) if item.id != None else "",
-            "document_category": str(item.category_id) if item.category_id != None else "",
-        }
-      )
-      
-      print("\n==== PART 3 ===\n")
-
-      document_tags = []
-      document_title = None
-      document_summary = None
-      document_remarks = None
-
-      if es_docs is not None and len(es_docs) > 0:
-        document_tags = es_docs[0]["metadata"]["document_tags"] if ("metadata" in es_docs[0] and "document_tags" in es_docs[0]["metadata"] ) else document_tags
-        document_title = es_docs[0]["metadata"]["document_title"] if ("metadata" in es_docs[0] and "document_title" in es_docs[0]["metadata"] ) else document_title
-        document_summary = es_docs[0]["metadata"]["document_summary"] if ("metadata" in es_docs[0] and "document_summary" in es_docs[0]["metadata"] ) else document_summary
-        document_remarks = es_docs[0]["metadata"]["document_remarks"] if ("metadata" in es_docs[0] and "document_remarks" in es_docs[0]["metadata"] ) else document_remarks
-
-      print("\n==== PART 4 ===\n")
-
-      results = await ESChatLLM.bot_es_add_document(
-        index_name=str(item.party_id),
-        text_data=text_data,
-        text=text,
-        extra_metadata={
-            "document_tags": document_tags,
-            "document_title": document_title,
-            "document_summary": document_summary,
-            "document_remarks": document_remarks,
-        },
-        is_testrun=False,
+      docs, ids, index_name = await __reparse_file_as_docs(
+        item = item,
+        r_file = r_file,
+        is_testrun = is_testrun,
       )
 
   return {
     "success": True,
     "message": TAG_C001,
-    "esparsedata": results,
+    "esparsedata": {
+      "ids": ids,
+      "index_name": index_name,
+      "docs": docs,
+    },
     "data": {
       "item": item,
       "r_file": r_file.name,
-      "es_docs": es_docs,
     },
   }
+
+
+
+
 
 
 @router.post("/file_estest/test_reparse_all_files_as_docs")
@@ -228,12 +285,14 @@ async def test_reparse_all_files_as_docs(
   request: Request,
 ):
   data = await request.json()
+  party_id = data["party_id"]
+  is_testrun = data["is_testrun"]
 
 
   items = (
     await File
       .filter(Q(**{
-        "category_id": "ed6042cf-17ac-4e9c-b224-23273f8a5f80",
+        "party_id": party_id,
       }))
   )
 
@@ -245,72 +304,34 @@ async def test_reparse_all_files_as_docs(
   
   for item in items:
     
-    es_docs = []
     r_file = None
     
-    if (item != None):
-      es_docs = await fetch_es_docs(
-        party_id=item.party_id,
-        file=item,
-      )
-
+    if (item is not None):
       r_file = load_uploaded_file(filename=item.filename)
       
       if r_file is not None:
-
-        print("\n==== PART 2 ===\n")
         
-        text_data, text = await ESChatLLM.async_extract_pdf_file_to_text(
-          filename=item.filename,
-          file=r_file,
-          meta_data_mapping = {
-              "document_file_id": str(item.id) if item.id != None else "",
-              "document_category": str(item.category_id) if item.category_id != None else "",
-          }
+        docs, ids, index_name = __reparse_file_as_docs(
+          item = item,
+          r_file = r_file,
+          is_testrun = is_testrun,
         )
         
-        print("\n==== PART 3 ===\n")
-
-        document_tags = []
-        document_title = None
-        document_summary = None
-        document_remarks = None
-
-        if es_docs is not None and len(es_docs) > 0:
-          document_tags = es_docs[0]["metadata"]["document_tags"] if ("metadata" in es_docs[0] and "document_tags" in es_docs[0]["metadata"] ) else document_tags
-          document_title = es_docs[0]["metadata"]["document_title"] if ("metadata" in es_docs[0] and "document_title" in es_docs[0]["metadata"] ) else document_title
-          document_summary = es_docs[0]["metadata"]["document_summary"] if ("metadata" in es_docs[0] and "document_summary" in es_docs[0]["metadata"] ) else document_summary
-          document_remarks = es_docs[0]["metadata"]["document_remarks"] if ("metadata" in es_docs[0] and "document_remarks" in es_docs[0]["metadata"] ) else document_remarks
-
-        print("\n==== PART 4 ===\n")
-
-        results = await ESChatLLM.bot_es_add_document(
-          index_name=str(item.party_id),
-          text_data=text_data,
-          text=text,
-          extra_metadata={
-              "document_tags": document_tags,
-              "document_title": document_title,
-              "document_summary": document_summary,
-              "document_remarks": document_remarks,
-          },
-          is_testrun=False,
-        )
-
   return {
     "success": True,
     "message": TAG_C001,
     # "esparsedata": {
     #   "ids": ids,
-    #   "docs": docs,
     #   "index_name": index_name,
+    #   "docs": docs,
     # },
     # "data": {
     #   "item": item,
     #   "r_file": r_file.name,
-    #   "es_docs": es_docs,
     # },
   }
+
+
 
 
 
@@ -319,22 +340,33 @@ async def test_search_by_multi_vector_query_strings(
   request: Request,
 ):
   data = await request.json()
-  
-  
 
-  result = await ESChatLLM.bot_es_search_multi_vector(
-    index_name=data["index_name"],
-    query_strings=data["query_strings"],
-    knn_boosts=data["knn_boosts"],
-    document_category=data["document_category"],
-    k=data["k"],
-    num_candidates=data["num_candidates"],
+  vo_es = ESVoDocSearch(
+    index_name = data["index_name"],
+    question = data["question"] if "question" in data else None,
+    query_strings = data["query_strings"] if "query_strings" in data else None,
+    query_vectors = data["query_vectors"] if "query_vectors" in data else None,
+    knn_boosts = data["knn_boosts"] if "knn_boosts" in data else None,
+    document_category = data["document_category"],
+    k = data["k"] if "k" in data else 10,
+    num_candidates = data["num_candidates"] if "num_candidates" in data else 100,
+    data_strategy = data["data_strategy"] if "data_strategy" in data else None,
+    data_portion_type = data["data_portion_type"] if "data_portion_type" in data else None,
+    must_match_document_category = data["must_match_document_category"] if "must_match_document_category" in data else True,
+    should_match_document_tags = data["should_match_document_tags"] if "should_match_document_tags" in data else 0,
+    should_match_document_title = data["should_match_document_title"] if "should_match_document_title" in data else 0,
+    should_match_document_summary = data["should_match_document_summary"] if "should_match_document_summary" in data else 0,
+    should_match_document_text = data["should_match_document_text"] if "should_match_document_text" in data else 0,
+  )
+
+  es_result = await ESChatLLM.bot_es_search_multi_vector(
+    vo=vo_es,
   )
 
   return {
     "success": True,
     "message": TAG_C001,
-    "data": result,
+    "data": es_result,
   }
   
   
@@ -349,6 +381,7 @@ async def test_get_es_doc_ids_by_document_file_id(
   result = await ESChatLLM.bot_es_get_document_es_ids_by_document_file_id(
     index_name=data["index_name"],
     document_file_id=data["document_file_id"],
+    data_strategy=data["data_strategy"] if "data_strategy" in data else "2",
   )
 
   return {
@@ -376,6 +409,26 @@ async def test_get_es_doc_ids_by_document_file_id(
     "data": result,
   }
   
+
+
+
+
+@router.post("/file_estest/bot_es_doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk")
+async def test_bot_es_doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk(
+  request: Request,
+):
+  data = await request.json()
+
+  result = await ESChatLLM.bot_es_doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk(
+    index_name=data["index_name"],
+  )
+
+  return {
+    "success": True,
+    "message": TAG_C001,
+    "data": result,
+  }
+
 
 
 

@@ -3,7 +3,7 @@ from . import ConfigParams
 from .EmbeddingsBundle import EmbeddingsBundle
 from typing import Dict
 from .ElasticSearchDao.ESVo import ESVoDocSearch
-
+from .ElasticSearchDao import _constants
 
 
 class ESChatLLMSearchException(Exception):
@@ -129,12 +129,45 @@ def generate_multi_vector_knn(
     
     qbool = {}
 
-    qbool["must"] = [] if "must" not in qbool else qbool["must"]
-    qbool["must"].append({
-        "term": {
-            "metadata.data_strategy.keyword": "2",
-        }
-    })
+
+
+
+
+    if voDocSearch.is_search_strategy_2():
+        qbool["must"] = [] if "must" not in qbool else qbool["must"]
+        qbool["must"].append({
+            "term": {
+                "metadata.data_strategy.keyword": "2",
+            }
+        })
+        
+        if voDocSearch.is_search_portion_type_page():
+            qbool["must"] = [] if "must" not in qbool else qbool["must"]
+            qbool["must"].append({
+                "term": {
+                    "metadata.data_portion_type.keyword": _constants.DATA_PORTION_TYPE_PAGE,
+                }
+            })
+
+        elif voDocSearch.is_search_portion_type_chunk():
+            qbool["must"] = [] if "must" not in qbool else qbool["must"]
+            qbool["must"].append({
+                "term": {
+                    "metadata.data_portion_type.keyword": _constants.DATA_PORTION_TYPE_CHUNK,
+                }
+            })
+            
+    else:
+        qbool["must"] = [] if "must" not in qbool else qbool["must"]
+        qbool["must"].append({
+            "term": {
+                "metadata.data_strategy.keyword": "1",
+            }
+        })
+
+
+
+
 
     
     if (voDocSearch.must_match_document_category):

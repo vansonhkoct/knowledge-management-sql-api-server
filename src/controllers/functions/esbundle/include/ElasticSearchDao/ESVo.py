@@ -11,7 +11,7 @@ class ESVoDocSearch:
     k: int = 10
     num_candidates: int = 100
     data_strategy: str = None
-    data_portion_type: str = _constants.DATA_PORTION_PAGE
+    data_portion_type: str = _constants.DATA_PORTION_TYPE_PAGE
     must_match_document_category: bool = True
     should_match_document_tags: int = 0
     should_match_document_title: int = 0
@@ -29,7 +29,7 @@ class ESVoDocSearch:
         k: int = 10,
         num_candidates: int = 100,
         data_strategy: str = None,
-        data_portion_type: str = _constants.DATA_PORTION_PAGE,
+        data_portion_type: str = _constants.DATA_PORTION_TYPE_PAGE,
         must_match_document_category: bool = True,
         should_match_document_tags: int = 0,
         should_match_document_title: int = 0,
@@ -56,10 +56,10 @@ class ESVoDocSearch:
         return (self.data_strategy == "2")
 
     def is_search_portion_type_page(self):
-        return (self.portion_type == _constants.DATA_PORTION_PAGE)
+        return (self.portion_type == _constants.DATA_PORTION_TYPE_PAGE)
 
     def is_search_portion_type_chunk(self):
-        return (self.portion_type == _constants.DATA_PORTION_CHUNK)
+        return (self.portion_type == _constants.DATA_PORTION_TYPE_CHUNK)
 
     def is_search_portion_type_none(self):
         return (
@@ -74,7 +74,7 @@ class ESVoDocInsert:
     index_name: str
     text_data: dict
     text: str
-    chunk_size: int = 500
+    chunk_size: int = 350
     chunk_overlap: int = 10
     extra_metadata: dict | None = None
     is_testrun: bool = False
@@ -84,7 +84,7 @@ class ESVoDocInsert:
         index_name: str,
         text_data: dict,
         text: str,
-        chunk_size: int = 500,
+        chunk_size: int = 350,
         chunk_overlap: int = 10,
         extra_metadata: dict | None = None,
         is_testrun: bool = False,

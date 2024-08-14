@@ -1,5 +1,5 @@
 import os
-import datetime
+from datetime import datetime
 
 username = os.getenv("ES_USERNAME")
 password = os.getenv("ES_PASSWORD")

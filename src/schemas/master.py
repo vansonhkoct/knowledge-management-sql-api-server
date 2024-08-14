@@ -61,8 +61,6 @@ class Category(Model, _ModelBaseAccess, _ModelBaseBody):
     alias = fields.CharField(max_length=512, null=True)
     folderpath_relative = fields.CharField(max_length=512, default="")
     folderpath_absolute = fields.CharField(max_length=5120, null=True)
-    
-    es_strategy = fields.CharField(max_length=16, null=True)
 
     def __str__(self):
         return self.name

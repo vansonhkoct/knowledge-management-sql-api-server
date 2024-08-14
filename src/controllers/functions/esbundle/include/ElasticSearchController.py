@@ -4,8 +4,9 @@ from typing import Dict
 
 from . import ConfigParams
 from .DocumentUtils import DocumentUtils
-from .ElasticSearchDao import DocInsert, DocUpdate, DocSearch
+from .ElasticSearchDao import DocInsert, DocUpdate, DocSearch, DocMigrate, DocGet, DocDelete
 from .ElasticSearchDao.ESVo import ESVoDocSearch, ESVoDocInsert
+from .ElasticSearchDao import _constants
 
 es_logger = logger
 es_logger.setLevel(logging.DEBUG)
@@ -34,13 +35,13 @@ class ElasticSearchController:
         voDocInsert: ESVoDocInsert,
     ):
         try:
-            docs = DocInsert.doc_insert_text_data_strat_1(
+            docs, ids, index_name = DocInsert.doc_insert_text_data_strat_1(
                 DocumentUtils = DocumentUtils,
                 embedding = self.embedding,
                 es_client = self.es_client,
                 voDocInsert = voDocInsert,
             )
-            return docs
+            return docs, ids, index_name
         except Exception as e:
             print(e)
             raise e
@@ -54,13 +55,13 @@ class ElasticSearchController:
         voDocInsert: ESVoDocInsert,
     ):
         try:
-            results = DocInsert.doc_insert_text_data_strat_2(
+            docs, ids, index_name = DocInsert.doc_insert_text_data_strat_2(
                 DocumentUtils = DocumentUtils,
                 embedding = self.embedding,
                 es_client = self.es_client,
                 voDocInsert = voDocInsert,
             )
-            return results
+            return docs, ids, index_name
         except Exception as e:
             print(e)
             raise e
@@ -69,7 +70,6 @@ class ElasticSearchController:
 
 
     # Update
-
     def doc_update_document_metadata(
         self,
         index_name: str, 
@@ -105,20 +105,17 @@ class ElasticSearchController:
 
 
     # Get
-
     def doc_get_document_by_id(
         self,
         index_name: str, 
         id: str,
     ):
         try:
-            result = self.es_client.get(
-                index=index_name,
+            return DocGet.doc_get_document_by_id(
+                es_client=self.es_client,
+                index_name=index_name,
                 id=id,
             )
-
-            doc = result['_source']
-            return doc
         
         except Exception as e:
             return None
@@ -129,16 +126,33 @@ class ElasticSearchController:
         self,
         index_name: str,
         document_file_id: str,
+        data_strategy: str = _constants.DATA_STRATEGY_1,
     ):
         query = {
-           "query": {
-                "term": {
-                    "metadata.document_file_id.keyword": document_file_id,
-                },
+            "query": {
+                "bool": {
+                    "must": [
+                        {
+                            "term": {
+                                "metadata.document_file_id.keyword": document_file_id,
+                            },
+                        },
+                        {
+                            "term": {
+                                "metadata.data_strategy.keyword": data_strategy,
+                            },
+                        },
+                    ]
+                }
             },
+            "size": 10000,
         }
 
-        response = self.es_client.search(index=index_name, body=query)
+        response = DocSearch.doc_search_any_query(
+            index_name=index_name, 
+            query=query, 
+            es_client=self.es_client)
+
         res_body = response.body
         res_body_hits_list = res_body["hits"]["hits"]
 
@@ -159,10 +173,15 @@ class ElasticSearchController:
         index_name: str, 
         id: str,
     ):
-        return self.es_client.delete(
-            index=index_name,
-            id=id,
-        )
+        try:
+            return DocDelete.doc_delete_document_by_id(
+                es_client=self.es_client,
+                index_name=index_name,
+                id=id,
+            )
+            
+        except Exception as e:
+            return None
         
         
 
@@ -183,3 +202,19 @@ class ElasticSearchController:
 
 
 
+
+
+
+
+    # Migrate
+    
+    def doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk(
+        self,
+        index_name: str,
+    ):
+        return DocMigrate.doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk(
+            es_client=self.es_client,
+            index_name=index_name,
+        )
+        
+        

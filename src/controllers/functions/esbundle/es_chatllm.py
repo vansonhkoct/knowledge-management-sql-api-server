@@ -54,14 +54,14 @@ async def bot_es_add_document(
     _bot_initialize_es()
     
     def fn():
-        results = es_controller.doc_insert_text_data_strat_2(
+        docs, ids, index_name = es_controller.doc_insert_text_data_strat_2(
             voDocInsert=vo,
         )
 
-        return results
+        return docs, ids, index_name
 
-    results = await asyncio.get_running_loop().run_in_executor(None, fn)
-    return results
+    docs, ids, index_name = await asyncio.get_running_loop().run_in_executor(None, fn)
+    return docs, ids, index_name
 
 
 
@@ -117,6 +117,7 @@ async def bot_es_get_document_by_id(
 async def bot_es_get_document_es_ids_by_document_file_id(
     index_name,
     document_file_id,
+    data_strategy,
 ):
     _bot_initialize_es()
     
@@ -124,6 +125,7 @@ async def bot_es_get_document_es_ids_by_document_file_id(
         res = es_controller.doc_get_document_es_ids_by_document_file_id(
             index_name = index_name,
             document_file_id = document_file_id,
+            data_strategy = data_strategy,
         )
         return res
     res = await asyncio.get_running_loop().run_in_executor(None, fn)
@@ -175,6 +177,27 @@ async def bot_es_search_multi_vector(
 
     res = await asyncio.get_running_loop().run_in_executor(None, fn)
     return res
+
+
+
+
+
+# ES - Migrate
+
+async def bot_es_doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk(
+    index_name: str,
+):
+    _bot_initialize_es()
+    
+    def fn():
+        res = es_controller.doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk(
+            index_name=index_name,
+        )
+        return res
+
+    res = await asyncio.get_running_loop().run_in_executor(None, fn)
+    return res
+
 
 
 
