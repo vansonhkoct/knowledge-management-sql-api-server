@@ -1,12 +1,14 @@
 
 
+from elasticsearch import Elasticsearch
+
 
 def doc_update_document_metadata(
-    es_client,
-    index_name, 
-    id,
-    document_category,
-    document_tags,
+    es_client: Elasticsearch,
+    index_name: str, 
+    id: str,
+    document_category: str,
+    document_tags: list[str],
 ):
     return es_client.update(
         index=index_name,
@@ -23,10 +25,10 @@ def doc_update_document_metadata(
 
 
 def doc_update_document_metadata_free(
-    es_client,
-    index_name, 
-    id,
-    metadata,
+    es_client: Elasticsearch,
+    index_name: str, 
+    id: str,
+    metadata: dict,
 ):
     return es_client.update(
         index=index_name,

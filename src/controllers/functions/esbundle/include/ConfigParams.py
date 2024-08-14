@@ -1,20 +1,33 @@
 import os
+import datetime
 
-class ConfigParams():
-    def __init__(self):
-        self.username = os.getenv("ES_CHATLLM_USERNAME")
-        self.password = os.getenv("ES_CHATLLM_PASSWORD")
-        self.host = os.getenv("ES_CHATLLM_HOST")
+username = os.getenv("ES_USERNAME")
+password = os.getenv("ES_PASSWORD")
+host = os.getenv("ES_HOST")
 
-        self.embedding_model_legacy = os.getenv("ES_CHATLLM_EMBEDDING_MODEL_LEGACY")
-        self.embedding_model = os.getenv("ES_CHATLLM_EMBEDDING_MODEL")
-        self.llm_model_uses_gpu = True if os.getenv("ES_CHATLLM_LLM_MODEL_USES_GPU") == "1" else False
-        self.llm_model = os.getenv("ES_CHATLLM_LLM_MODEL_GPU") if self.llm_model_uses_gpu == True else os.getenv("ES_CHATLLM_LLM_MODEL_CPU")
+embedding_model_legacy = os.getenv("ES_EMBEDDING_MODEL_LEGACY")
+embedding_model = os.getenv("ES_EMBEDDING_MODEL")
+es_debug = True if os.getenv("ES_DEBUG") == "1" else False
+        
+llm_model_uses_gpu = True if os.getenv("ES_CHATLLM_LLM_MODEL_USES_GPU") == "1" else False
+llm_model = os.getenv("ES_CHATLLM_LLM_MODEL_GPU") if llm_model_uses_gpu == True else os.getenv("ES_CHATLLM_LLM_MODEL_CPU")
+llm_controller_debug = True if os.getenv("ES_CHATLLM_LLM_CONTROLLER_DEBUG") == "1" else False
 
-        print("\n--- [es_chatllm -> ConfigParams:]\n")
-        print(f"es host: {self.host}")
-        print(f"es embedding_model: {self.embedding_model_legacy}")
-        print(f"es embedding_model: {self.embedding_model}")
-        print(f"llm_model_uses_gpu: {self.llm_model_uses_gpu}")
-        print(f"llm_model: {self.llm_model}")
-        print("---\n")
+print("\n--- [es_chatllm -> ConfigParams:]\n")
+print(f"es host: {host}")
+print(f"es embedding_model_legacy: {embedding_model_legacy}")
+print(f"es embedding_model: {embedding_model}")
+print(f"es es_debug: {es_debug}")
+print(f"llm_model_uses_gpu: {llm_model_uses_gpu}")
+print(f"llm_model: {llm_model}")
+print(f"llm_controller_debug: {llm_controller_debug}")
+print("---\n")
+        
+def es_dbg(head = "", body = ""):
+    if es_debug:
+        print(f"[ES] {datetime.now().strftime("%Y-%m-%d_%H-%M-%S")} {head} - {body}")
+
+def llm_dbg(head = "", body = ""):
+    if es_debug:
+        print(f"[ChatLLM] {datetime.now().strftime("%Y-%m-%d_%H-%M-%S")} {head} - {body}")
+

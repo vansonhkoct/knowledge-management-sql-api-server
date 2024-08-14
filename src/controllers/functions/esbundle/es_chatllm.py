@@ -1,109 +1,73 @@
 
 from .include.py_any2text_parser.pdf2text import extract_pdf_file_to_text, async_extract_pdf_file_to_text
-from .include.ConfigParams import ConfigParams
-from .include.ChatLLM import ChatLLMAnswerResult, ChatLLM
+from .include import ConfigParams
 from .include.EmbeddingsBundle import EmbeddingsBundle
 from .include.ElasticSearchController import ElasticSearchController
-from .include.ElasticSearchQueryUtils import ElasticSearchQueryUtils
-from .include.DocumentUtils import DocumentUtils
+from .include.ChatLLMController import ChatLLMController
+from .include.ElasticSearchDao.ESVo import ESVoDocSearch, ESVoDocInsert
+from .include.ChatLLMDao.LLMVo import LLMVoAskQuestion
 
 
 import asyncio
 
 
-config_params: ConfigParams = ConfigParams()
-llm: ChatLLM = None
-history = []
 embedding_instance: EmbeddingsBundle = None
 es_controller: ElasticSearchController = None
-active_llm_generators_vs_api_uids = {}
+llm_controller: ChatLLMController = None
 
         
-def bot_initialize_chatllm():
+# Init ChatLLM Controller
+def _bot_initialize_chatllm():
 
-    # Init ChatLLM
-    global llm
+    global llm_controller
 
-    llm = ChatLLM(config_params = config_params)
-    llm.load_llm()
-    
+    llm_controller = llm_controller if llm_controller is not None else ChatLLMController()
 
 
-def bot_initialize_es():
 
-    # Init ElasticSearch
+
+# Init ElasticSearch
+def _bot_initialize_es():
+
     global embedding_instance
     global es_controller
     
-    embedding_instance = EmbeddingsBundle(
-        model_path = config_params.embedding_model, 
-        model_path_legacy = config_params.embedding_model_legacy,
+    embedding_instance = embedding_instance if embedding_instance is not None else EmbeddingsBundle(
+        model_path = ConfigParams.embedding_model, 
+        model_path_legacy = ConfigParams.embedding_model_legacy,
     )
-    es_controller = ElasticSearchController(
+    
+    es_controller = es_controller if es_controller is not None else ElasticSearchController(
         embedding = embedding_instance, 
-        config_params = config_params,
     )
 
 
 
+
+
+
+# ES - Insert
 
 async def bot_es_add_document(
-    index_name, 
-    text_data,
-    text,
-    chunk_size = 300, 
-    chunk_overlap = 10, 
-    extra_metadata = {},
-    is_testrun = False,
+    vo: ESVoDocInsert,
 ):
+    _bot_initialize_es()
+    
     def fn():
-        docs, ids, _index_name = es_controller.doc_insert_text_data(
-            index_name = index_name,
-            text_data = text_data,
-            text = text,
-            chunk_size = chunk_size, 
-            chunk_overlap = chunk_overlap,
-            extra_metadata = extra_metadata,
-            is_testrun = is_testrun,
+        results = es_controller.doc_insert_text_data_strat_2(
+            voDocInsert=vo,
         )
 
-        return docs, ids, _index_name
+        return results
 
-    docs, ids, _index_name = await asyncio.get_running_loop().run_in_executor(None, fn)
-    return docs, ids, _index_name
-
-
-
-
-async def bot_es_add_document_testraw(
-    index_name, 
-    text_data,
-    text,
-    chunk_size = 300, 
-    chunk_overlap = 10, 
-    use_text_splitter = False,
-    extra_metadata = {},
-    is_testrun = False,
-):
-    def fn():
-        docs, ids, _index_name = es_controller.doc_insert_text_data_textraw(
-            index_name = index_name,
-            text_data = text_data,
-            text = text,
-            chunk_size = chunk_size, 
-            chunk_overlap = chunk_overlap,
-            use_text_splitter = use_text_splitter,
-            extra_metadata = extra_metadata,
-            is_testrun = is_testrun,
-        )
-
-        return docs, ids, _index_name
-
-    docs, ids, _index_name = await asyncio.get_running_loop().run_in_executor(None, fn)
-    return docs, ids, _index_name
+    results = await asyncio.get_running_loop().run_in_executor(None, fn)
+    return results
 
 
 
+
+
+# ES - Update
 
 async def bot_es_update_document_metadata(
     index_name, 
@@ -111,6 +75,8 @@ async def bot_es_update_document_metadata(
     document_category,
     document_tags,
 ):
+    _bot_initialize_es()
+    
     def fn():
         res = es_controller.doc_update_document_metadata(
             index_name = index_name,
@@ -124,10 +90,19 @@ async def bot_es_update_document_metadata(
     return res
 
 
+
+
+
+
+
+# ES - Get
+
 async def bot_es_get_document_by_id(
     index_name, 
     id,
 ):
+    _bot_initialize_es()
+    
     def fn():
         res = es_controller.doc_get_document_by_id(
             index_name = index_name,
@@ -139,10 +114,36 @@ async def bot_es_get_document_by_id(
     return res
 
 
+async def bot_es_get_document_es_ids_by_document_file_id(
+    index_name,
+    document_file_id,
+):
+    _bot_initialize_es()
+    
+    def fn():
+        res = es_controller.doc_get_document_es_ids_by_document_file_id(
+            index_name = index_name,
+            document_file_id = document_file_id,
+        )
+        return res
+    res = await asyncio.get_running_loop().run_in_executor(None, fn)
+    return res
+
+
+
+
+
+
+
+
+# ES - Delete
+
 async def bot_es_delete_document_by_id(
     index_name, 
     id,
 ):
+    _bot_initialize_es()
+    
     def fn():
         res = es_controller.doc_delete_document_by_id(
             index_name = index_name,
@@ -154,49 +155,21 @@ async def bot_es_delete_document_by_id(
     return res
 
 
-async def bot_es_delete_all_documents(
-    index_name, 
+
+
+
+
+
+# ES - Search
+
+async def bot_es_search_multi_vector(
+    vo: ESVoDocSearch,
 ):
+    _bot_initialize_es()
+    
     def fn():
-        res = es_controller.delete_all_documents(
-            index_name = index_name,
-        )
-        return res
-
-    res = await asyncio.get_running_loop().run_in_executor(None, fn)
-    return res
-
-
-async def bot_es_search_by_document_file_name(
-    index_name,
-    document_file_name,
-):
-    def fn():
-        res = es_controller.doc_search_by_document_file_name(
-            index_name = index_name,
-            document_file_name = document_file_name,
-        )
-        return res
-    res = await asyncio.get_running_loop().run_in_executor(None, fn)
-    return res
-
-
-async def bot_es_search_multi_vector_string_fields(
-    index_name,
-    query_strings,
-    knn_boosts,
-    document_category,
-    k = 10,
-    num_candidates = 100,
-):
-    def fn():
-        res = es_controller.doc_search_multi_vector_string_fields(
-            index_name = index_name,
-            query_strings = query_strings, 
-            knn_boosts = knn_boosts, 
-            document_category = document_category,
-            k = k,
-            num_candidates = num_candidates,
+        res = es_controller.doc_search_multi_vector(
+            voDocSearch = vo,
         )
         return res
 
@@ -205,14 +178,19 @@ async def bot_es_search_multi_vector_string_fields(
 
 
 
-async def bot_get_es_doc_ids_document_es_ids_by_document_file_id(
-    index_name,
-    document_file_id,
+
+
+
+# CHATLLM - ask question
+
+async def bot_llm_ask_question(
+    vo: LLMVoAskQuestion
 ):
+    _bot_initialize_chatllm()
+    
     def fn():
-        res = es_controller.doc_get_document_es_ids_by_document_file_id(
-            index_name = index_name,
-            document_file_id = document_file_id,
+        res = llm_controller.bot_ask_question(
+            voAskQuestion = vo,
         )
         return res
 
@@ -221,6 +199,21 @@ async def bot_get_es_doc_ids_document_es_ids_by_document_file_id(
 
 
 
-# Initialize
-bot_initialize_es()
+
+# CHATLLM - stop answering
+
+async def bot_llm_stop_answering(
+    api_uid: str | None = None,
+):
+    _bot_initialize_chatllm()
+    
+    def fn():
+        llm_controller.bot_stop_answering(
+            api_uid = api_uid,
+        )
+        return True
+
+    res = await asyncio.get_running_loop().run_in_executor(None, fn)
+
+
 

@@ -1,171 +1,240 @@
 
-
+from . import ConfigParams
+from .EmbeddingsBundle import EmbeddingsBundle
 from typing import Dict
+from .ElasticSearchDao.ESVo import ESVoDocSearch
 
-class ElasticSearchQueryUtils:
 
-    @staticmethod
-    def generate_search_query(vec, size) -> Dict:
-        query = {
-            "query": {
-                "script_score": {
-                    "query": {
-                        "match_all": {}
-                    },
-                    "script": {
-                        "source": "cosineSimilarity(params.queryVector, 'vector') + 1.0",
-                        "params": {
-                            "queryVector": vec
-                        }
-                    }
-                }
-            },
-            "size": size
-        }
-        return query
+
+class ESChatLLMSearchException(Exception):
+    def __init__(
+        self,
+        status_code: str,
+        detail: str | None = None,
+    ) -> None:
+        self.status_code = status_code
+        self.detail = detail
+
+    def __str__(self) -> str:
+        return f"{self.status_code}: {self.detail}"
+
+    def __repr__(self) -> str:
+        class_name = self.__class__.__name__
+        return f"{class_name}(status_code={self.status_code!r}, detail={self.detail!r})"
+
+
+
+
+def generate_multi_vector_knn(
+    embedding: EmbeddingsBundle,
+    voDocSearch: ESVoDocSearch,
+    ) -> Dict:
+    """
+    Performs a multi-vector field KNN query in Elasticsearch with additional term query criteria.
+    
+    Args:
+        index_name (str): The name of the Elasticsearch index to search.
+        query_vectors (dict): A dictionary containing the query vectors for each vector field.
+            The keys should be the field names, and the values should be the vector values.
+        knn_boosts (dict, optional): A dictionary containing the KNN boost values for each vector field.
+            The keys should be the field names, and the values should be the boost values.
+        document_category (str, optional): The document category to filter the search results.
+        k (int): Specifies the number of nearest neighbors (k) to retrieve in the search results.
+        num_candidates (int): Specifies the number of candidate documents to consider when performing the KNN search.
+    
+    Returns:
+        dict: Elasticsearch Query
+    """
     
     
-    @staticmethod
-    def generate_knn_query(vec, size) -> Dict:
-        query = {
-            "knn": {
-                "field": "vector",
-                "query_vector": vec,
-                "k": 10,
-                "num_candidates": 100
-            },
-            "size": size
-        }
-        return query
+    ConfigParams.es_dbg("[ElasticSearchQueryUtils] question", voDocSearch.question)
+    ConfigParams.es_dbg("[ElasticSearchQueryUtils] query strings:", voDocSearch.query_strings)
+    ConfigParams.es_dbg("[ElasticSearchQueryUtils] query vectors:", voDocSearch.query_vectors)
     
     
-    @staticmethod
-    def generate_hybrid_query(text, vec, size, knn_boost, document_category) -> Dict:
-        query = {
-            "query": {
-                "bool": {
-                    "must": [
-                        {
-                            "term": {
-                                "metadata.document_category.keyword": document_category,
-                            }
-                        }
-                    ],
-                    "should": [
-                        {
-                            "match": {
-                                "text": {
-                                    "query": text,
-                                    "boost": (1 - knn_boost) * 1.0,
-                                }
-                            }
-                        },
-                    ]
-                }
-            },
+    
+    
+    if voDocSearch.query_vectors is None:
+        if voDocSearch.query_strings is None:
+            if voDocSearch.question is None:
+                raise ESChatLLMSearchException(status_code="ESQU0001", detail="All missing: question, query_strings, query_vectors")
+
+
+
+    embedding_function = None
+    
+    if voDocSearch.is_search_strategy_2():
+        embedding_function = embedding.embed_query
+    else:
+        embedding_function = embedding.embed_query_legacy
+
+
+    if voDocSearch.knn_boosts is None:
+        voDocSearch.knn_boosts = {}
+
+
+    if voDocSearch.query_vectors is None:
+        if voDocSearch.query_strings is None:
             
-            "knn": {
-                "field": "vector",
-                "query_vector": vec,
-                "k": 10,
-                "num_candidates": 100,
-                "boost": (knn_boost) * 1.0,
-            },
-            "size": size
-        }
-        return query
+            query_strings = {}
+            
+            if voDocSearch.is_search_strategy_2():
+                
+                if voDocSearch.is_search_portion_type_page():
+                    query_strings["page_content_vector"] = voDocSearch.question
+                    query_strings["document_header_vector"] = voDocSearch.question
+                    voDocSearch.knn_boosts["page_content_vector"] = 0.75
+                    voDocSearch.knn_boosts["document_header_vector"] = 0.25
 
-    
-    @staticmethod
-    def generate_multi_vector_knn(
-        query_vectors: dict, 
-        knn_boosts: dict = None, 
-        document_category: str = None, 
-        k: int = 10,
-        num_candidates: int = 100,
-        ) -> Dict:
-        """
-        Performs a multi-vector field KNN query in Elasticsearch with additional term query criteria.
-        
-        Args:
-            index_name (str): The name of the Elasticsearch index to search.
-            query_vectors (dict): A dictionary containing the query vectors for each vector field.
-                The keys should be the field names, and the values should be the vector values.
-            knn_boosts (dict, optional): A dictionary containing the KNN boost values for each vector field.
-                The keys should be the field names, and the values should be the boost values.
-            document_category (str, optional): The document category to filter the search results.
-            k (int): Specifies the number of nearest neighbors (k) to retrieve in the search results.
-            num_candidates (int): Specifies the number of candidate documents to consider when performing the KNN search.
-        
-        Returns:
-            dict: Elasticsearch Query
-        """
-        
-        # Build the multi-vector field KNN query
-        query = {
-            "query": {
-                "bool": {
-                    "must": [
-                        {
-                            "term": {
-                                "metadata.document_category.keyword": document_category
-                            }
-                        }
-                    ]
-                }
-            },
-            "knn": [
-                {
-                    "field": field_name,
-                    "query_vector": list(field_vector),
-                    "k": k,
-                    "num_candidates": num_candidates,
-                    "boost": knn_boosts.get(field_name, 1.0),
-                } for field_name, field_vector in query_vectors.items()
-            ],
-            "size": k,
-        }
-        return query
+                elif voDocSearch.is_search_portion_type_chunk():
+                    query_strings["page_content_vector"] = voDocSearch.question
+                    query_strings["document_header_vector"] = voDocSearch.question
+                    voDocSearch.knn_boosts["page_content_vector"] = 0.92
+                    voDocSearch.knn_boosts["document_header_vector"] = 0.08
 
+            else:
+                
+                query_strings["vector"] = voDocSearch.question
+                voDocSearch.knn_boosts["vector"] = 1.0
+        
+            voDocSearch.query_strings = query_strings
 
-
-    @staticmethod
-    def generate_multi_vector_knn_by_query_string_fields(
-        embedding_function,
-        query_strings: dict, 
-        knn_boosts: dict = None, 
-        document_category: str = None, 
-        k: int = 10,
-        num_candidates: int = 100,
-        ) -> Dict:
-        """
-        Performs a multi-vector field KNN query in Elasticsearch with additional term query criteria.
-        
-        Args:
-            index_name (str): The name of the Elasticsearch index to search.
-            query_strings (dict): A dictionary containing the query strings for each vector field.
-                The keys should be the field names, and the values should be the string values.
-                They will be converted to vector values & passed to `generate_multi_vector_knn`.
-            knn_boosts (dict, optional): A dictionary containing the KNN boost values for each vector field.
-                The keys should be the field names, and the values should be the boost values.
-            document_category (str, optional): The document category to filter the search results.
-            k (int): Specifies the number of nearest neighbors (k) to retrieve in the search results.
-            num_candidates (int): Specifies the number of candidate documents to consider when performing the KNN search.
-        
-        Returns:
-            dict: Elasticsearch Query
-        """
-        
-        print(query_strings)
         
         query_vectors = {}
-        for field_name, field_string in query_strings.items():
+        for field_name, field_string in voDocSearch.query_strings.items():
             query_vectors[field_name] = embedding_function(field_string)
         
-        return ElasticSearchQueryUtils.generate_multi_vector_knn(
-            query_vectors = query_vectors,
-            knn_boosts = knn_boosts,
-            document_category = document_category,
-            k = k,
-            num_candidates = num_candidates,
-        )
+        voDocSearch.query_vectors = query_vectors
+    
+
+    
+    
+    
+    
+    query = {}
+    
+    query["knn"] = [
+        {
+            "field": field_name,
+            "query_vector": list(field_vector),
+            "k": voDocSearch.k,
+            "num_candidates": voDocSearch.num_candidates,
+            "boost": voDocSearch.knn_boosts.get(field_name, 1.0),
+        } for field_name, field_vector in voDocSearch.query_vectors.items()
+    ]
+    
+    query["size"] = voDocSearch.k
+    
+    
+    
+    qbool = {}
+
+    qbool["must"] = [] if "must" not in qbool else qbool["must"]
+    qbool["must"].append({
+        "term": {
+            "metadata.data_strategy.keyword": "2",
+        }
+    })
+
+    
+    if (voDocSearch.must_match_document_category):
+        qbool["must"] = [] if "must" not in qbool else qbool["must"]
+        qbool["must"].append({
+            "term": {
+                "metadata.document_category.keyword": voDocSearch.document_category
+            }
+        })
+    
+    if (voDocSearch.should_match_document_tags > 0):
+        qbool["should"] = [] if "should" not in qbool else qbool["should"]
+        qbool["should"].append({
+            "match": {
+                "text": {
+                    "query": voDocSearch.question,
+                    "boost": voDocSearch.should_match_document_tags,
+                }
+            }
+        })
+    
+    if (voDocSearch.should_match_document_title > 0):
+        qbool["should"] = [] if "should" not in qbool else qbool["should"]
+        qbool["should"].append({
+            "match": {
+                "text": {
+                    "query": voDocSearch.question,
+                    "boost": voDocSearch.should_match_document_title,
+                }
+            }
+        })
+    
+    if (voDocSearch.should_match_document_summary > 0):
+        qbool["should"] = [] if "should" not in qbool else qbool["should"]
+        qbool["should"].append({
+            "match": {
+                "text": {
+                    "query": voDocSearch.question,
+                    "boost": voDocSearch.should_match_document_summary,
+                }
+            }
+        })
+    
+    if (voDocSearch.should_match_document_text > 0):
+        qbool["should"] = [] if "should" not in qbool else qbool["should"]
+        qbool["should"].append({
+            "match": {
+                "text": {
+                    "query": voDocSearch.question,
+                    "boost": voDocSearch.should_match_document_text,
+                }
+            }
+        })
+
+    
+    if (len(qbool) > 0):
+        query["query"] = {} if "query" not in query else query["query"]
+        query["query"]["bool"] = qbool
+
+    # Expected format: Build the multi-vector field KNN query
+    # query = {
+    #     "query": {
+    #         "bool": {
+    #             "must": [
+    #                 {
+    #                     "term": {
+    #                         "metadata.document_category.keyword": voDocSearch.document_category
+    #                     }
+    #                 }
+    #             ]
+    #         }
+    #     },
+    #     "knn": [
+    #         {
+    #             "field": field_name,
+    #             "query_vector": list(field_vector),
+    #             "k": voDocSearch.k,
+    #             "num_candidates": voDocSearch.num_candidates,
+    #             "boost": voDocSearch.knn_boosts.get(field_name, 1.0),
+    #         } for field_name, field_vector in voDocSearch.query_vectors.items()
+    #     ],
+    #     "size": voDocSearch.k,
+    # }
+    
+    ConfigParams.es_dbg("[ElasticSearchQueryUtils] resulting query dict:", query)
+    
+    
+    possible_max_score = 0
+    
+    for field_name, field_vector in voDocSearch.query_vectors.items():
+        possible_max_score += voDocSearch.knn_boosts.get(field_name, 1.0)
+
+    possible_max_score += voDocSearch.should_match_document_tags
+    possible_max_score += voDocSearch.should_match_document_title
+    possible_max_score += voDocSearch.should_match_document_summary
+    possible_max_score += voDocSearch.should_match_document_text
+
+    return query, possible_max_score
+
+
+
+
+

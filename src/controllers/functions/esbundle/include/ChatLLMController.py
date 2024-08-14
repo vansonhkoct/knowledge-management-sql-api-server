@@ -1,182 +1,191 @@
 
-from .ChatLLM import ChatLLM
-from .ElasticSearchQueryUtils import ElasticSearchQueryUtils
+from .ChatLLM import ChatLLM, ChatLLMAnswerResult
+from .ChatLLMDao.LLMVo import LLMVoAskQuestion
 import time
 import opencc
+from . import ConfigParams
 converter = opencc.OpenCC('s2t.json')
 
 
-llm: ChatLLM = None
 
+class ChatLLMController:
 
-def bot_initialize(config_params):
-    llm = ChatLLM(config_params = config_params)
-    llm.load_llm()
+    llm: ChatLLM = None
 
-
-
-def llm_answer(prompt, history):
-    try:
-        for answer_result in llm.generator_answer(prompt=prompt, history=history, streaming=True):
-            yield answer_result
-    finally:
-        print("End of llm_answer")
-        pass
-
-
-
-
-def bot_ask_question(
-    index_name,
-    question,
-    es_controller = None,
-    es_disabled = False,
-    es_query_top_k=7,
-    es_query_knn_boost=0.9,
-    es_query_document_category = "",
-    llm_max_token=8192,
-    llm_temperature=0.01,
-    llm_top_p=0.8,
-    llm_history_len=3,
-    llm_prompt_template=None,
-    api_uid=None,
-):
-    timestamp = str(time.time_ns())
-
-    def query_body_fn(question, top_k, knn_boost, document_category):
-        def fn(query_vector):
-            query_body = ElasticSearchQueryUtils.generate_hybrid_query(
-                text=question, 
-                vec=query_vector, 
-                size=top_k, 
-                knn_boost=knn_boost, 
-                document_category=document_category,
-            )
-            return query_body
-        return fn
-    
-    search_results = []
-    
-    
-    
-    if (not es_disabled):
-        try:
-            search_results = es_controller.doc_search_custom_query(
-                index_name = index_name, 
-                query = question,
-                query_body_fn = query_body_fn(
-                    question = question,
-                    top_k = es_query_top_k,  # 0 ~ 10, integer
-                    knn_boost = es_query_knn_boost,  # 0 ~ 1.0, float(step = 0.1)
-                    document_category = es_query_document_category,
-                ),
-            )
-        
-        except Exception as e:
-            print(f"Exception: {e}, Fallback result = []")
-            search_results = []
-
-
-        search_results = [result for result in search_results if result['score'] >= 1.2]
-
-    
-    informed_context = ''
-    for i in search_results:
-        informed_context += i['content'] + '\n'
-
-    
-    
-    if llm_prompt_template == None:
-        
-        PROMPT_TEMPLATE = """已知信息：
-        {context} 
-        
-        根据上述已知信息，简洁和专业的来回答用户的问题。如果无法从中得到答案，请说 “根据已知信息无法回答该问题” 或 “没有提供足够的相关信息”，不允许在答案中添加编造成分，答案请使用中文。 问题是：{question}"""
-
-    else:
-        
-        PROMPT_TEMPLATE = llm_prompt_template
-
-    
-
-    prompt = PROMPT_TEMPLATE.replace("{question}", question).replace("{context}", informed_context)
-
-    
-    
-    llm.max_token = llm_max_token             # 0 ~ 32768  (integer)
-    llm.temperature = llm_temperature         # 0 ~ 1  (float, step = 0.01)
-    llm.top_p = llm_top_p                     # 0 ~ 1  (float, step = 0.01)
-    llm.history_len = llm_history_len         # 0 ~ 10 (integer)
-
-
-
-    global history
+    active_llm_generators_vs_api_uids = {}
     history = []
-    
-    answer_gen = llm_answer(
-        prompt=prompt,
-        history=history,
-    )
-    
-    try:
-        print("Start")
 
-        active_llm_generators_vs_api_uids[api_uid] = answer_gen
+    def __init__(self):
+        self.llm = ChatLLM(config_params = ConfigParams)
+        self.llm.load_llm()
 
+
+    def bot_ask_question(
+        self, 
+        voAskQuestion: LLMVoAskQuestion,
+    ):
+        timestamp = str(time.time_ns())
+
+        prompt = self._make_prompt(
+            llm_prompt_template = voAskQuestion.llm_prompt_template, 
+            question = voAskQuestion.question, 
+            informed_context = voAskQuestion.context)
+
+        self._apply_llm_params(
+            llm_max_token = voAskQuestion.llm_max_token,
+            llm_temperature = voAskQuestion.llm_temperature,
+            llm_top_p = voAskQuestion.llm_top_p,
+            llm_history_len = voAskQuestion.llm_history_len,
+        )
+
+
+        # VANTODO: does not support history at the moment
+        self._clear_history()
         
-        while True:
-            answer_result = next(answer_gen)
+        
+        answer_gen = self._llm_generate_answer(
+            prompt=prompt,
+            history=[],
+        )
+        
+        answer_result = self._llm_answering_loop(
+            question = voAskQuestion.question,
+            answer_generator = answer_gen,
+            timestamp = timestamp,
+            api_uid=voAskQuestion.api_uid,
+            emit_to_uid=voAskQuestion.emit_to_uid,
+        )
+
+        answer_result_dict = {}
+        answer_result_dict[timestamp] = answer_result.llm_output
+
+        return {
+            "answer_gen": answer_gen,
+            "answer_result": answer_result_dict,
+        }
+
+
+
+    def bot_stop_answering(
+        self, 
+        api_uid: str | None = None,
+    ):
+        if (
+            api_uid is not None 
+            and api_uid in self.active_llm_generators_vs_api_uids
+            and self.active_llm_generators_vs_api_uids[api_uid] is not None
+        ):
             
-            history = answer_result.history
-            llm_output = answer_result.llm_output
+            self.active_llm_generators_vs_api_uids[api_uid].close()
+        
 
-            answer_result.llm_output["answer"] = converter.convert(
-                answer_result.llm_output["answer"]
-            )
+
+
+
+
+
+
+    # private functions
+
+
+
+
+
+    def _make_prompt(self, llm_prompt_template, question, informed_context):
+        
+        tag_informed_content = f"[INFORMED_CONTENT]"
+        tag_question_content = f"[INFORMED_QUESTION]"
+
+        if llm_prompt_template == None:
+            PROMPT_TEMPLATE = f"""已知信息：
+    {tag_informed_content} 
+    根據上述已知信息，簡潔和專業的來回答用戶的問題。如果無法從中得到答案，請說 「根據已知信息無法回答該問題」 或 「沒有提供足夠的相關信息」，不允許在答案中添加編造成分，答案請使用中文。 問題是：{tag_question_content}"""
+
+        else:
+            PROMPT_TEMPLATE = llm_prompt_template
+
+
+        prompt = (
+            PROMPT_TEMPLATE
+            .replace(tag_question_content, question)
+            .replace(tag_informed_content, informed_context)
+        )
+
+        return prompt
+
+
+
+    def _apply_llm_params(
+        self, 
+        llm_max_token=8192,
+        llm_temperature=0.01,
+        llm_top_p=0.8,
+        llm_history_len=3,
+    ):
+        self.llm.max_token = llm_max_token             # 0 ~ 32768  (integer)
+        self.llm.temperature = llm_temperature         # 0 ~ 1  (float, step = 0.01)
+        self.llm.top_p = llm_top_p                     # 0 ~ 1  (float, step = 0.01)
+        self.llm.history_len = llm_history_len         # 0 ~ 10 (integer)
+
+
+    def _clear_history(self):
+        self.history = []
+        
+
+
+
+
+    def _llm_generate_answer(self, prompt, history):
+        try:
+            for answer_result in self.llm.generator_answer(prompt=prompt, history=history, streaming=True):
+                yield answer_result
+        finally:
+            ConfigParams.llm_dbg("bot_ask_question", "End of _llm_generate_answer")
+            pass
+
+
+
+
+    def _llm_answering_loop(self, question, answer_generator, timestamp, api_uid, emit_to_uid):
+
+        answer_result: ChatLLMAnswerResult = None
+
+        try:
+            ConfigParams.llm_dbg("bot_ask_question", "Start")
+
+            self.active_llm_generators_vs_api_uids[api_uid] = answer_generator
+
             
-            history[-1][0] = question
-    
-            print(f"llm_output: {answer_result.llm_output}")
-
-            if api_uid is not None:
-
-                dict = {}
-                dict[timestamp] = answer_result.llm_output
+            while True:
+                answer_result = next(answer_generator)
                 
-                emit_to_uid(
-                    "ai_response", 
-                    dict,
-                    uid = api_uid,
+                history = answer_result.history
+
+                answer_result.llm_output["answer"] = converter.convert(
+                    answer_result.llm_output["answer"]
                 )
-
-
-    except StopIteration:
-        print("Done")
-        active_llm_generators_vs_api_uids[api_uid] = None
-        pass
-
-    answer_result_dict = {}
-    answer_result_dict[timestamp] = answer_result.llm_output
-
-    return {
-        "answer_gen": answer_gen,
-        "answer_result": answer_result_dict,
-        "search_results": search_results,
-    }
-
-
-
-def bot_stop_answering(
-    api_uid = None,
-):
-    global active_llm_generators_vs_api_uids
-
-    if (
-        api_uid is not None 
-        and api_uid in active_llm_generators_vs_api_uids
-        and active_llm_generators_vs_api_uids[api_uid] is not None
-       ):
+                
+                history[-1][0] = question
         
-        active_llm_generators_vs_api_uids[api_uid].close()
-    
+                ConfigParams.llm_dbg("bot_ask_question", f"llm_output: {answer_result.llm_output}")
 
+                if api_uid is not None:
+
+                    dict = {}
+                    dict[timestamp] = answer_result.llm_output
+                    
+                    if emit_to_uid is not None:
+                        emit_to_uid(
+                            "ai_response", 
+                            dict,
+                            uid = api_uid,
+                        ) 
+
+
+
+        except StopIteration:
+            ConfigParams.llm_dbg("bot_ask_question", "Done")
+            self.active_llm_generators_vs_api_uids[api_uid] = None
+            pass
+
+        return answer_result

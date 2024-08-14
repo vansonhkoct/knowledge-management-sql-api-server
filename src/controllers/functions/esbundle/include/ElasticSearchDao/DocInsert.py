@@ -1,34 +1,32 @@
 
+from elasticsearch import Elasticsearch
+from .. import EmbeddingsBundle
+from .. import DocumentUtils
+from . import _constants
+from .ESVo import ESVoDocInsert
 
 def doc_insert_text_data_strat_1(
-    DocumentUtils,
-    embedding,
-    es_client,
-    index_name, 
-    text_data, 
-    text, 
-    chunk_size, 
-    chunk_overlap, 
-    extra_metadata,
-    is_testrun,
+    DocumentUtils: DocumentUtils,
+    embedding: EmbeddingsBundle,
+    es_client: Elasticsearch,
+    voDocInsert: ESVoDocInsert,
     ):
     try:
-        index_page_prefix = ""
-
-        text_data, updated_text = DocumentUtils.parse_text(
-            text_data, text
+        _, updated_text = DocumentUtils.parse_text(
+            voDocInsert.text_data, 
+            voDocInsert.text,
         )
 
         # load txt file as Langchain Document chunks
-        docs = DocumentUtils.load_oc_text(updated_text, chunk_size, chunk_overlap, 
-                                          extra_metadata=extra_metadata)
+        docs = DocumentUtils.load_oc_text(updated_text, voDocInsert.chunk_size, voDocInsert.chunk_overlap, 
+                                          extra_metadata=voDocInsert.extra_metadata)
 
         # add Langchain Document chunks to ElasticSearch instance
         ids = []
         
-        composite_index_name = f"{index_page_prefix}{index_name}"
+        index_name = f"{voDocInsert.index_name}"
         
-        if not is_testrun:
+        if not voDocInsert.is_testrun:
             for k in range(len(docs)):
 
                 text = docs[k].page_content
@@ -36,21 +34,19 @@ def doc_insert_text_data_strat_1(
                 metadata = docs[k].metadata,
 
                 id = es_client.index(
-                    index=composite_index_name,
+                    index=index_name,
                     body={
                         "text": text,
                         "vector": vector,
-                        "metadata": metadata,
+                        "metadata": {
+                            **metadata,
+                            "data_strategy": "1",
+                        }
                     },
                 )
                 ids.append(id)
 
-        return {
-            composite_index_name: {
-                "ids": ids,
-                "docs": docs,
-            }
-        }
+        return docs, ids, index_name
     except Exception as e:
         print(e)
         raise e
@@ -60,45 +56,37 @@ def doc_insert_text_data_strat_1(
 # doc_insert_text_data_strat_20240812 stores the text data by
 # page content, document header, and combination of (page content + document header)
 def doc_insert_text_data_strat_2(
-    DocumentUtils,
-    embedding,
-    es_client,
-    index_name, 
-    text_data, 
-    text, 
-    chunk_size, 
-    chunk_overlap, 
-    extra_metadata,
-    is_testrun,
+    DocumentUtils: DocumentUtils,
+    embedding: EmbeddingsBundle,
+    es_client: Elasticsearch,
+    voDocInsert: ESVoDocInsert,
     ):
     try:
-        text_data, updated_text = DocumentUtils.parse_text(
-            text_data, text
+        
+        _, updated_text = DocumentUtils.parse_text(
+            voDocInsert.text_data, 
+            voDocInsert.text,
         )
 
         # load txt file as Langchain Document chunks
         print("processing docs_by_chunk...")
         docs_by_chunk = DocumentUtils.load_oc_text(updated_text,
-                                          chunk_size, chunk_overlap, 
+                                          voDocInsert.chunk_size, voDocInsert.chunk_overlap, 
                                           use_text_splitter=True,
-                                          extra_metadata=extra_metadata)
+                                          extra_metadata=voDocInsert.extra_metadata)
 
         # load txt file as Langchain Document pages
         print("processing docs_by_chunk...")
         docs_by_page = DocumentUtils.load_oc_text(updated_text,
                                           use_text_splitter=False,
-                                          extra_metadata=extra_metadata)
+                                          extra_metadata=voDocInsert.extra_metadata)
 
-        index_page_prefix = "strat_2_mpage_"
-        index_chunk_prefix = "strat_2_mchunk_"
-        
-        composite_index_chunk_name = f"{index_chunk_prefix}{index_name}"
-        composite_index_page_name = f"{index_page_prefix}{index_name}"
+        index_name = f"{voDocInsert.index_name}"
 
         ids_by_chunk = []
         ids_by_page = []
 
-        if not is_testrun:
+        if not voDocInsert.is_testrun:
             
             document_header_candidates = []
             if ("document_remarks" in docs_by_page[0].metadata):
@@ -112,15 +100,14 @@ def doc_insert_text_data_strat_2(
             document_header_vector = embedding.embed_query(document_header)
 
             for k in range(len(docs_by_chunk)):
-                print(f"vector `{composite_index_chunk_name}` vector")
+                print(f"vector `{index_name}` chunk vector")
 
                 text = f"{docs_by_page[k].page_content}"
                 vector = embedding.embed_query(text)
 
                 id = es_client.index(
-                    index=composite_index_chunk_name,
+                    index=index_name,
                     body={
-                        "prefix": index_chunk_prefix,
                         "text": text,
                         "vector": vector,
                         "document_header": document_header,
@@ -129,7 +116,11 @@ def doc_insert_text_data_strat_2(
                         "page_content_vector": page_content_vector,
                         "page_content_w_header": page_content_w_header,
                         "page_content_w_header_vector": page_content_w_header_vector,
-                        "metadata": docs_by_page[k].metadata,
+                        "metadata": {
+                            **docs_by_page[k].metadata,
+                            "data_strategy": "2",
+                            "data_portion_type": _constants.DATA_PORTION_CHUNK,
+                        }
                     },
                 )
                 ids_by_chunk.append(id)
@@ -137,44 +128,38 @@ def doc_insert_text_data_strat_2(
             for k in range(len(docs_by_page)):
 
                 # create document page header, page content, page content winpaged
-                print(f"vector `{composite_index_page_name}` page_content_vector")
+                print(f"vector `{index_name}` page_content_vector")
                 
                 page_content = f"{docs_by_page[k].page_content}"
                 page_content_vector = embedding.embed_query(page_content)
                 
-                print(f"vector `{composite_index_page_name}` document header + page_content_vector")
+                print(f"vector `{index_name}` document header + page_content_vector")
                 
                 page_content_w_header = f"{document_header}\n\n\n{docs_by_page[k].page_content}"
                 page_content_w_header_vector = embedding.embed_query(page_content_w_header)
                 
-                print(f"indexing `{composite_index_page_name}`")
+                print(f"indexing `{index_name}`")
 
                 # ES Create Index and obtain new ID!
                 id = es_client.index(
-                    index=f"{composite_index_page_name}",
+                    index=f"{index_name}",
                     body={
-                        "prefix": index_page_prefix,
                         "document_header": document_header,
                         "document_header_vector": document_header_vector,
                         "page_content": page_content,
                         "page_content_vector": page_content_vector,
                         "page_content_w_header": page_content_w_header,
                         "page_content_w_header_vector": page_content_w_header_vector,
-                        "metadata": docs_by_page[k].metadata,
+                        "metadata": {
+                            **docs_by_page[k].metadata,
+                            "data_strategy": "2",
+                            "data_portion_type": _constants.DATA_PORTION_PAGE,
+                        }
                     },
                 )
                 ids_by_page.append(id)
         
-        return {
-            composite_index_chunk_name: {
-                "ids": ids_by_chunk,
-                "docs": docs_by_chunk,
-            },
-            composite_index_page_name: {
-                "ids": ids_by_page,
-                "docs": docs_by_page,
-            },
-        }
+        return docs_by_chunk + docs_by_page, ids_by_chunk + ids_by_page, index_name
     except Exception as e:
         print(e)
         raise e

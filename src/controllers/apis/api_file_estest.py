@@ -1,8 +1,13 @@
 import traceback
-from fastapi import APIRouter, File as FastAPIFile, UploadFile, Form, Request, Body
+from fastapi import APIRouter, File as FastAPIFile, UploadFile, Form, Request, Body, WebSocket, WebSocketDisconnect
 from fastapi import HTTPException
 from typing import Annotated
 from tortoise.expressions import Q
+
+import nltk
+nltk.download('punkt_tab')
+nltk.download('averaged_perceptron_tagger_eng')
+import json
 
 import sys
 import os
@@ -21,6 +26,11 @@ from controllers.functions.file.file import on_remove_file
 from controllers.functions.file.file import on_upload_file
 from controllers.functions.file.file import fetch_es_docs
 from controllers.functions.user.userauth_session import fetch_loggedin_user_info
+
+import controllers.functions.esbundle.es_chatllm as ESChatLLM
+from controllers.functions.esbundle.include.ElasticSearchDao.ESVo import ESVoDocSearch, ESVoDocInsert
+from controllers.functions.esbundle.include.ChatLLMDao.LLMVo import LLMVoAskQuestion
+
 
 router = APIRouter(prefix="/api/v1")
 
@@ -161,15 +171,10 @@ async def test_reparse_file_as_docs(
 
       print("\n==== PART 1 ===\n")
 
-      import controllers.functions.esbundle.es_chatllm as ESChatLLM
-      from controllers.functions.esbundle.es_chatllm import async_extract_pdf_file_to_text
-      import nltk
-      nltk.download('punkt_tab')
-      nltk.download('averaged_perceptron_tagger_eng')
       
       print("\n==== PART 2 ===\n")
       
-      text_data, text = await async_extract_pdf_file_to_text(
+      text_data, text = await ESChatLLM.async_extract_pdf_file_to_text(
         filename=item.filename,
         file=r_file,
         meta_data_mapping = {
@@ -193,7 +198,7 @@ async def test_reparse_file_as_docs(
 
       print("\n==== PART 4 ===\n")
 
-      docs, ids, index_name = await ESChatLLM.bot_es_add_document_testraw(
+      results = await ESChatLLM.bot_es_add_document(
         index_name=str(item.party_id),
         text_data=text_data,
         text=text,
@@ -204,17 +209,12 @@ async def test_reparse_file_as_docs(
             "document_remarks": document_remarks,
         },
         is_testrun=False,
-        use_text_splitter=False,
       )
 
   return {
     "success": True,
     "message": TAG_C001,
-    "esparsedata": {
-      "ids": ids,
-      "docs": docs,
-      "index_name": index_name,
-    },
+    "esparsedata": results,
     "data": {
       "item": item,
       "r_file": r_file.name,
@@ -241,19 +241,6 @@ async def test_reparse_all_files_as_docs(
 
   print("\n==== PART 1 ===\n")
 
-  import controllers.functions.esbundle.es_chatllm as ESChatLLM
-  from controllers.functions.esbundle.es_chatllm import async_extract_pdf_file_to_text
-  import nltk
-  nltk.download('punkt_tab')
-  nltk.download('averaged_perceptron_tagger_eng')
-  
-
-
-  print ("\n==== PART 0 clean ===\n")
-  await ESChatLLM.bot_es_delete_all_documents("t20240812_a_mbase_56e0a540-fb4f-40b6-acdd-d325d3d0fd65")
-  await ESChatLLM.bot_es_delete_all_documents("t20240812_a_mbase_totaldoc_56e0a540-fb4f-40b6-acdd-d325d3d0fd65")
-  
-  print ("\n==== PART 0 cleaned ===\n")
 
   
   for item in items:
@@ -273,7 +260,7 @@ async def test_reparse_all_files_as_docs(
 
         print("\n==== PART 2 ===\n")
         
-        text_data, text = await async_extract_pdf_file_to_text(
+        text_data, text = await ESChatLLM.async_extract_pdf_file_to_text(
           filename=item.filename,
           file=r_file,
           meta_data_mapping = {
@@ -297,7 +284,7 @@ async def test_reparse_all_files_as_docs(
 
         print("\n==== PART 4 ===\n")
 
-        docs, ids, index_name = await ESChatLLM.bot_es_add_document_testraw(
+        results = await ESChatLLM.bot_es_add_document(
           index_name=str(item.party_id),
           text_data=text_data,
           text=text,
@@ -308,7 +295,6 @@ async def test_reparse_all_files_as_docs(
               "document_remarks": document_remarks,
           },
           is_testrun=False,
-          use_text_splitter=False,
         )
 
   return {
@@ -332,11 +318,11 @@ async def test_reparse_all_files_as_docs(
 async def test_search_by_multi_vector_query_strings(
   request: Request,
 ):
-  import controllers.functions.esbundle.es_chatllm as ESChatLLM
-
   data = await request.json()
+  
+  
 
-  result = await ESChatLLM.bot_es_search_multi_vector_string_fields(
+  result = await ESChatLLM.bot_es_search_multi_vector(
     index_name=data["index_name"],
     query_strings=data["query_strings"],
     knn_boosts=data["knn_boosts"],
@@ -358,11 +344,9 @@ async def test_search_by_multi_vector_query_strings(
 async def test_get_es_doc_ids_by_document_file_id(
   request: Request,
 ):
-  import controllers.functions.esbundle.es_chatllm as ESChatLLM
-
   data = await request.json()
 
-  result = await ESChatLLM.bot_get_es_doc_ids_document_es_ids_by_document_file_id(
+  result = await ESChatLLM.bot_es_get_document_es_ids_by_document_file_id(
     index_name=data["index_name"],
     document_file_id=data["document_file_id"],
   )
@@ -373,3 +357,168 @@ async def test_get_es_doc_ids_by_document_file_id(
     "data": result,
   }
   
+  
+  
+@router.post("/file_estest/get_es_doc_by_id")
+async def test_get_es_doc_ids_by_document_file_id(
+  request: Request,
+):
+  data = await request.json()
+
+  result = await ESChatLLM.bot_es_get_document_by_id(
+    index_name=data["index_name"],
+    id=data["id"],
+  )
+
+  return {
+    "success": True,
+    "message": TAG_C001,
+    "data": result,
+  }
+  
+
+
+
+@router.post("/file_estest/test_llm_ask_question")
+async def test_bot_llm_ask_question(
+  request: Request,
+):
+
+  data = await request.json()
+  
+  vo_es = ESVoDocSearch(
+    index_name = data["index_name"],
+    question = data["question"] if "question" in data else None,
+    query_strings = data["query_strings"] if "query_strings" in data else None,
+    query_vectors = data["query_vectors"] if "query_vectors" in data else None,
+    knn_boosts = data["knn_boosts"] if "knn_boosts" in data else None,
+    document_category = data["document_category"],
+    k = data["k"] if "k" in data else 10,
+    num_candidates = data["num_candidates"] if "num_candidates" in data else 100,
+    data_strategy = data["data_strategy"] if "data_strategy" in data else None,
+    data_portion_type = data["data_portion_type"] if "data_portion_type" in data else None,
+    must_match_document_category = data["must_match_document_category"] if "must_match_document_category" in data else True,
+    should_match_document_tags = data["should_match_document_tags"] if "should_match_document_tags" in data else 0,
+    should_match_document_title = data["should_match_document_title"] if "should_match_document_title" in data else 0,
+    should_match_document_summary = data["should_match_document_summary"] if "should_match_document_summary" in data else 0,
+    should_match_document_text = data["should_match_document_text"] if "should_match_document_text" in data else 0,
+  )
+
+  es_result = await ESChatLLM.bot_es_search_multi_vector(
+    vo=vo_es,
+  )
+
+
+  def do_filter_es_result_item(it):
+    if it["score"] / it["record_max_score"] < 0.75:
+      return False
+    if it["score"] / it["possible_max_score"] < 0.60:
+      return False
+    return True
+
+  filtered_es_result = [ it for it in es_result if ( do_filter_es_result_item(it) )]
+  
+  
+  # Group Using a dictionary-based approach
+  group_filtered_es_result = {}
+  for it in filtered_es_result:
+      if it["file_id"] not in group_filtered_es_result:
+          group_filtered_es_result[it["file_id"]] = []
+
+      group_filtered_es_result[it["file_id"]].append(it)
+
+
+  aggregated_context = []
+  
+  for key_file_id in group_filtered_es_result.keys():
+    document_header = f"\n\n---------\n{it["metadata"]["document_remarks"]}\n{it["metadata"]["document_title"]}\n{it["metadata"]["document_summary"]}\n"
+    document_footer = f"\n\n----------\n\n"
+    document_content_array = [ it["content"] for it in group_filtered_es_result[key_file_id] ]
+    document_content = f"\n ... \n { "\n ... \n".join(document_content_array) } \n ... \n"
+
+    aggregated_context.append(document_header)
+    aggregated_context.append(document_content)
+    aggregated_context.append(document_footer)
+    
+
+  def do_emit_to_uid(topic, dict, uid):
+    wsConnectionManager.send_personal_message(
+      message=json.dumps({
+        topic: topic,
+        dict: dict,
+        }), 
+      api_uid=uid
+      )
+
+
+  vo_llm = LLMVoAskQuestion(
+    prompt = "".join([
+      "已知信息：\n",
+      aggregated_context,
+      "\n\n根據上述已知信息，簡潔和專業的來回答用户的問題。如果無法從中得到答案，請説 “根據已知信息無法回答該問題” 或 “沒有提供足夠的相關信息”，不允許在答案中添加其他任何成分，答案請使用中文。 問題是：",
+      data["question"],
+    ]),
+    llm_max_token = data["llm_max_token"] if "llm_max_token" in data else 8192,
+    llm_temperature = data["llm_temperature"] if "llm_temperature" in data else 0.05,
+    llm_top_p = data["llm_top_p"] if "llm_top_p" in data else 0.8,
+    llm_history_len = data["llm_history_len"] if "llm_history_len" in data else 3,
+    api_uid = data["api_uid"] if "api_uid" in data else "",
+    emit_to_uid = do_emit_to_uid,
+  )
+
+  llm_answer_result = await ESChatLLM.bot_llm_ask_question(
+    vo=vo_llm,
+  )
+
+  return {
+    "success": True,
+    "message": TAG_C001,
+    "data": llm_answer_result,
+  }
+  
+  
+
+
+
+
+
+
+
+class WebsocketConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+        self.active_connections_map: dict[str, WebSocket] = {}
+
+    async def connect(self, websocket: WebSocket, api_uid: str):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        self.active_connections_map[api_uid] = self.active_connections_map[api_uid] if api_uid in self.active_connections_map else self.active_connections_map[api_uid]
+
+    def disconnect(self, websocket: WebSocket, api_uid: str):
+        self.active_connections.remove(websocket)
+        del self.active_connections_map[api_uid]
+
+    async def send_personal_message(self, message: str, api_uid: str):
+        if (api_uid in self.active_connections_map):
+            await self.active_connections_map[api_uid].send_text(message)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+
+wsConnectionManager = WebsocketConnectionManager()
+
+
+
+
+@router.websocket("/ws/{api_uid}/chatllm_answering/")
+async def websocket_endpoint(websocket: WebSocket, api_uid: str):
+    await wsConnectionManager.connect(websocket=websocket, api_uid=api_uid)
+    try:
+        while True:
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        wsConnectionManager.disconnect(websocket, api_uid=api_uid)
+
+
