@@ -4,23 +4,17 @@ from fastapi import HTTPException
 from typing import Annotated
 from tortoise.expressions import Q
 
-import sys
-import os
+from src.controllers.functions.user.userauth_email import obtain_user_by_user_credential
+from src.controllers.functions.user.userauth_email import obtain_user_by_user_credential_and_party_id
 
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(parent_dir + "/../../")
+from src.controllers.functions.user.userauth_session import obtain_user_by_user_access_token
+from src.controllers.functions.user.userauth_session import create_new_access_token_by_user_refresh_token
+from src.controllers.functions.user.userauth_session import create_new_access_token_and_refresh_token_by_user
+from src.controllers.functions.user.userauth_session import delete_access_token
 
-from controllers.functions.user.userauth_email import obtain_user_by_user_credential
-from controllers.functions.user.userauth_email import obtain_user_by_user_credential_and_party_id
-
-from controllers.functions.user.userauth_session import obtain_user_by_user_access_token
-from controllers.functions.user.userauth_session import create_new_access_token_by_user_refresh_token
-from controllers.functions.user.userauth_session import create_new_access_token_and_refresh_token_by_user
-from controllers.functions.user.userauth_session import delete_access_token
+from src.models.master import KMUser
 
 router = APIRouter(prefix="/api/v1")
-
-from models.master import KMUser
 
 TAG_C001 = "C_AUTH001"
 TAG_E001 = "E_AUTH001"

@@ -56,10 +56,10 @@ class ESVoDocSearch:
         return (self.data_strategy == "2")
 
     def is_search_portion_type_page(self):
-        return (self.portion_type == _constants.DATA_PORTION_TYPE_PAGE)
+        return (self.data_portion_type == _constants.DATA_PORTION_TYPE_PAGE)
 
     def is_search_portion_type_chunk(self):
-        return (self.portion_type == _constants.DATA_PORTION_TYPE_CHUNK)
+        return (self.data_portion_type == _constants.DATA_PORTION_TYPE_CHUNK)
 
     def is_search_portion_type_none(self):
         return (

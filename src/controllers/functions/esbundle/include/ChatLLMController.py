@@ -26,10 +26,7 @@ class ChatLLMController:
     ):
         timestamp = str(time.time_ns())
 
-        prompt = self._make_prompt(
-            llm_prompt_template = voAskQuestion.llm_prompt_template, 
-            question = voAskQuestion.question, 
-            informed_context = voAskQuestion.context)
+        prompt = voAskQuestion.prompt
 
         self._apply_llm_params(
             llm_max_token = voAskQuestion.llm_max_token,
@@ -49,7 +46,7 @@ class ChatLLMController:
         )
         
         answer_result = self._llm_answering_loop(
-            question = voAskQuestion.question,
+            question = prompt,
             answer_generator = answer_gen,
             timestamp = timestamp,
             api_uid=voAskQuestion.api_uid,
@@ -88,30 +85,6 @@ class ChatLLMController:
     # private functions
 
 
-
-
-
-    def _make_prompt(self, llm_prompt_template, question, informed_context):
-        
-        tag_informed_content = f"[INFORMED_CONTENT]"
-        tag_question_content = f"[INFORMED_QUESTION]"
-
-        if llm_prompt_template == None:
-            PROMPT_TEMPLATE = f"""已知信息：
-    {tag_informed_content} 
-    根據上述已知信息，簡潔和專業的來回答用戶的問題。如果無法從中得到答案，請說 「根據已知信息無法回答該問題」 或 「沒有提供足夠的相關信息」，不允許在答案中添加編造成分，答案請使用中文。 問題是：{tag_question_content}"""
-
-        else:
-            PROMPT_TEMPLATE = llm_prompt_template
-
-
-        prompt = (
-            PROMPT_TEMPLATE
-            .replace(tag_question_content, question)
-            .replace(tag_informed_content, informed_context)
-        )
-
-        return prompt
 
 
 

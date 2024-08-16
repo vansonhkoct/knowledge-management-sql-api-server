@@ -16,11 +16,7 @@ def doc_search_multi_vector(
 
     query_body, possible_max_score = ElasticSearchQueryUtils.generate_multi_vector_knn(
         embedding = embedding,
-        query_strings = voDocSearch.query_strings,
-        knn_boosts = voDocSearch.knn_boosts,
-        document_category = voDocSearch.document_category,
-        k = voDocSearch.k,
-        num_candidates = voDocSearch.num_candidates,
+        voDocSearch = voDocSearch,
     )
     
     index_name = f"{_constants.ES_INDEX_ACTIVE_GLOBAL_PREFIX}{voDocSearch.index_name}"

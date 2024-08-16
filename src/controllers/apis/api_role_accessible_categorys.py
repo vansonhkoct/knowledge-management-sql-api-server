@@ -5,25 +5,18 @@ from typing import Annotated
 from tortoise.expressions import Q
 from itertools import groupby
 
-import sys
-import os
-
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(parent_dir + "/../../")
-
-from controllers.functions._generic.modelutils import makeObjectID
 from tortoise.exceptions import IntegrityError
 from tortoise.contrib.fastapi import HTTPNotFoundError
 
+from src.controllers.functions._generic.modelutils import makeObjectID
+from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from src.controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
+
+from src.models.master import Category, KMCategory
+from src.models.master import Role
+
+
 router = APIRouter(prefix="/api/v1")
-
-
-
-from models.master import Category, KMCategory
-from models.master import Role
-from controllers.functions.user.userauth_session import fetch_loggedin_user_info
-from controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
-
 
 
 TAG_C001 = "C_ROLE_ACCESSIBLE_CATEGORY001"

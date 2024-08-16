@@ -4,9 +4,7 @@ from bson import ObjectId
 import re
 import unicodedata
 
-parent_dir = os.path.dirname(os.path.realpath(__file__))
 default_upload_dir = os.getenv("FILE_UPLOAD_ABSOLUTE_PATH") 
-default_upload_dir = default_upload_dir if default_upload_dir is not None else (parent_dir + "/../../../../upload/")
 
 class UploadFileRecord:
   def __init__(self, alias: str, filepath: str, filename: str, filesize: int, mimetype: str):
@@ -96,10 +94,10 @@ def makeSafeFilename(original_filename):
 
 
 def getStaticFilesBaseUrl():
-  return "https://octopus-tech.com:16898/static/"
+  return os.getenv("URL_STATIC_BASE_URL")
 
 
 def getUploadFilesBaseUrl():
-  return "https://octopus-tech.com:16898/upload/"
+  return os.getenv("URL_UPLOAD_BASE_URL")
 
 

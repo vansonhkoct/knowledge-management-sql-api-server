@@ -1,16 +1,12 @@
 from tortoise.contrib.pydantic import pydantic_model_creator
+from tortoise import Tortoise
+from src.schemas.master import *
 
-import sys
-import os
+Tortoise.init_models(models_paths=[
+  "src.schemas.master",
+  "aerich.models",
+], app_label="models")
 
-# Get the parent directory
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-
-# Add the parent directory to sys.path
-sys.path.append(parent_dir + "/../")
-# print(sys.path)
-
-from schemas.master import *
 
 KMRole = pydantic_model_creator(Role, name="Role")
 KMCategory = pydantic_model_creator(Category, name="Category")

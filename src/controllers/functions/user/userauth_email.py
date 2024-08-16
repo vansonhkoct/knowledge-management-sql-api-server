@@ -1,16 +1,10 @@
 import traceback
 
-import sys
-import os
+from src.controllers.functions._generic.fileutils import UploadFileRecord, upload_file_write_to_upload_folder
+from src.controllers.functions._generic.modelutils import hashPassword, checkPassword
+from ..file.file import create_entry_file
 
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(parent_dir + "/../../../")
-
-from controllers.functions._generic.fileutils import UploadFileRecord, upload_file_write_to_upload_folder
-from controllers.functions._generic.modelutils import hashPassword, checkPassword
-from controllers.functions.file.file import create_entry_file
-
-from models.master import User, UserCredential, UserCredentialType
+from src.models.master import User, UserCredential, UserCredentialType
 
 
 

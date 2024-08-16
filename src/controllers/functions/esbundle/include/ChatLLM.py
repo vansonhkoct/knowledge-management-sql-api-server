@@ -54,7 +54,7 @@ class ChatLLM(LLM):
             if self.model_gpu == True:
                 self.model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True).cuda()
             else:
-                self.model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True).float()
+                self.model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True).half().float()
                 # self.model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True).half()
             print("B3")
             self.model = self.model.eval()

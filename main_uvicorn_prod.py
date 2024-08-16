@@ -1,6 +1,9 @@
 import os
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(
+  verbose=True,
+  override=True,
+)
 
 PORT = os.getenv("PORT_PROD")
 

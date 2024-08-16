@@ -4,19 +4,15 @@ from fastapi import HTTPException
 from typing import Annotated
 from tortoise.expressions import Q
 
-import sys
-import os
+from src.controllers.functions.user.user import create_user
+from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from src.controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
 
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(parent_dir + "/../../")
+from src.models.master import Party, User, Role, Permission, Category
+
 
 router = APIRouter(prefix="/api/v1")
 
-
-from models.master import Party, User, Role, Permission, Category
-from controllers.functions.user.user import create_user
-from controllers.functions.user.userauth_session import fetch_loggedin_user_info
-from controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
 
 TAG_C001 = "C_PARTY001"
 TAG_E001 = "E_PARTY001"

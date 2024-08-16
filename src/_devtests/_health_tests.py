@@ -2,14 +2,6 @@
 # mypy: no-disallow-untyped-decorators
 # pylint: disable=E0611,E0401
 from fastapi.testclient import TestClient
-
-import sys
-import os
-
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(parent_dir + "/../")
-
-
 from apiapp.APIApplication import app
 
 client = TestClient(app)

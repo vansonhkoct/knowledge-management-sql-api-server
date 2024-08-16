@@ -1,12 +1,6 @@
 
-import sys
-import os
-
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(parent_dir + "/../../../")
-
-from controllers.functions._generic.fileutils import UploadFileRecord, upload_file_write_to_upload_folder
-from models.master import File
+from src.controllers.functions._generic.fileutils import UploadFileRecord, upload_file_write_to_upload_folder
+from src.models.master import File
 
 from typing import BinaryIO
 

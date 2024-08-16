@@ -4,22 +4,18 @@ from fastapi import HTTPException
 from typing import Annotated
 from tortoise.expressions import Q
 
-import sys
-import os
-
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(parent_dir + "/../../")
-
-from controllers.functions._generic.modelutils import makeObjectID
 from tortoise.exceptions import IntegrityError
 from tortoise.contrib.fastapi import HTTPNotFoundError
+
+from src.controllers.functions._generic.modelutils import makeObjectID
+
+from src.models.master import Category, KMCategory
+from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
 
 router = APIRouter(prefix="/api/v1")
 
 
 
-from models.master import Category, KMCategory
-from controllers.functions.user.userauth_session import fetch_loggedin_user_info
 
 
 

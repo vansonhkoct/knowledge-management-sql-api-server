@@ -4,19 +4,13 @@ from fastapi import HTTPException
 from typing import Annotated
 from tortoise.expressions import Q
 
-import sys
-import os
+from src.controllers.functions._generic.fileutils import UploadFileRecord, upload_file_write_to_upload_folder
+from src.controllers.functions.file.file import create_entry_file
 
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(parent_dir + "/../../")
+from src.models.master import User, Role, Permission
 
-from controllers.functions._generic.fileutils import UploadFileRecord, upload_file_write_to_upload_folder
-from controllers.functions.file.file import create_entry_file
 
 router = APIRouter(prefix="/api/v1")
-
-from models.master import User, Role, Permission
-
 
 TAG_C001 = "C_PERMISSION001"
 TAG_E001 = "E_PERMISSION001"

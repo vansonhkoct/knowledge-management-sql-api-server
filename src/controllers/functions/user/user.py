@@ -1,13 +1,7 @@
 import traceback
 
-import sys
-import os
-
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(parent_dir + "/../../../")
-
-from controllers.functions.user.userauth_email import make_user_credential
-from models.master import User, Role, Party
+from .userauth_email import make_user_credential
+from src.models.master import User, Role, Party
 
 
 async def create_user(

@@ -4,27 +4,21 @@ from fastapi import HTTPException
 from typing import Annotated
 from tortoise.expressions import Q
 
-import sys
-import os
+from src.controllers.functions._generic.fileutils import UploadFileRecord
+from src.controllers.functions._generic.fileutils import upload_file_write_to_upload_folder
+from src.controllers.functions._generic.fileutils import remove_file_from_upload_folder
+from src.controllers.functions.file.file import bootstrapImportESBundle
+from src.controllers.functions.file.file import create_entry_file
+from src.controllers.functions.file.file import on_move_file
+from src.controllers.functions.file.file import on_remove_file
+from src.controllers.functions.file.file import on_upload_file
+from src.controllers.functions.file.file import fetch_es_docs
+from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
 
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(parent_dir + "/../../")
-
-from controllers.functions._generic.fileutils import UploadFileRecord
-from controllers.functions._generic.fileutils import upload_file_write_to_upload_folder
-from controllers.functions._generic.fileutils import remove_file_from_upload_folder
-from controllers.functions.file.file import bootstrapImportESBundle
-from controllers.functions.file.file import create_entry_file
-from controllers.functions.file.file import on_move_file
-from controllers.functions.file.file import on_remove_file
-from controllers.functions.file.file import on_upload_file
-from controllers.functions.file.file import fetch_es_docs
-from controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from src.models.master import File, KMFile
+from src.models.master import Category, KMCategory
 
 router = APIRouter(prefix="/api/v1")
-
-from models.master import File, KMFile
-from models.master import Category, KMCategory
 
 
 TAG_C001 = "C_FILE001"

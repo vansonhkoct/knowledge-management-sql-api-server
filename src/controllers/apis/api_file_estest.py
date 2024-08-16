@@ -1,41 +1,42 @@
 import traceback
-from fastapi import APIRouter, File as FastAPIFile, UploadFile, Form, Request, Body, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, File as FastAPIFile, UploadFile, Form, Request, Body
+from fastapi import WebSocket, WebSocketDisconnect
 from fastapi import HTTPException
 from typing import Annotated
 from tortoise.expressions import Q
+import asyncio
 
-import nltk
-nltk.download('punkt_tab')
-nltk.download('averaged_perceptron_tagger_eng')
 import json
 
-import sys
-import os
+import nltk
 
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(parent_dir + "/../../")
+from src.controllers.functions._generic.fileutils import UploadFileRecord
+from src.controllers.functions._generic.fileutils import upload_file_write_to_upload_folder
+from src.controllers.functions._generic.fileutils import remove_file_from_upload_folder
+from src.controllers.functions._generic.fileutils import load_uploaded_file
+from src.controllers.functions.file.file import bootstrapImportESBundle
+from src.controllers.functions.file.file import create_entry_file
+from src.controllers.functions.file.file import on_move_file
+from src.controllers.functions.file.file import on_remove_file
+from src.controllers.functions.file.file import on_upload_file
+from src.controllers.functions.file.file import fetch_es_docs
+from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from src.controllers.functions.ws.WebsocketConnectionManager import wsConnectionManager
+from src.controllers.functions.esbundle import es_chatllm as ESChatLLM
+from src.controllers.functions.esbundle.include.ElasticSearchDao.ESVo import ESVoDocSearch, ESVoDocInsert
+from src.controllers.functions.esbundle.include.ChatLLMDao.LLMVo import LLMVoAskQuestion
 
-from controllers.functions._generic.fileutils import UploadFileRecord
-from controllers.functions._generic.fileutils import upload_file_write_to_upload_folder
-from controllers.functions._generic.fileutils import remove_file_from_upload_folder
-from controllers.functions._generic.fileutils import load_uploaded_file
-from controllers.functions.file.file import bootstrapImportESBundle
-from controllers.functions.file.file import create_entry_file
-from controllers.functions.file.file import on_move_file
-from controllers.functions.file.file import on_remove_file
-from controllers.functions.file.file import on_upload_file
-from controllers.functions.file.file import fetch_es_docs
-from controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from src.models.master import File, KMFile
+from src.models.master import Category, KMCategory
 
-import controllers.functions.esbundle.es_chatllm as ESChatLLM
-from controllers.functions.esbundle.include.ElasticSearchDao.ESVo import ESVoDocSearch, ESVoDocInsert
-from controllers.functions.esbundle.include.ChatLLMDao.LLMVo import LLMVoAskQuestion
+
+
+nltk.download('punkt_tab')
+nltk.download('averaged_perceptron_tagger_eng')
 
 
 router = APIRouter(prefix="/api/v1")
 
-from models.master import File, KMFile
-from models.master import Category, KMCategory
 
 
 TAG_C001 = "C_FILE_ESTEST001"
@@ -529,29 +530,21 @@ async def test_bot_llm_ask_question(
     aggregated_context.append(document_footer)
     
 
-  def do_emit_to_uid(topic, dict, uid):
-    wsConnectionManager.send_personal_message(
-      message=json.dumps({
-        topic: topic,
-        dict: dict,
-        }), 
-      api_uid=uid
-      )
-
+  prompt = "".join([
+    "已知信息：\n",
+    "".join(aggregated_context),
+    "\n\n根據上述已知信息，簡潔和專業的來回答用户的問題。如果無法從中得到答案，請説 “根據已知信息無法回答該問題” 或 “沒有提供足夠的相關信息”，不允許在答案中添加其他任何成分，答案請使用中文。 問題是：",
+    data["question"],
+  ])
 
   vo_llm = LLMVoAskQuestion(
-    prompt = "".join([
-      "已知信息：\n",
-      aggregated_context,
-      "\n\n根據上述已知信息，簡潔和專業的來回答用户的問題。如果無法從中得到答案，請説 “根據已知信息無法回答該問題” 或 “沒有提供足夠的相關信息”，不允許在答案中添加其他任何成分，答案請使用中文。 問題是：",
-      data["question"],
-    ]),
+    prompt = prompt,
     llm_max_token = data["llm_max_token"] if "llm_max_token" in data else 8192,
     llm_temperature = data["llm_temperature"] if "llm_temperature" in data else 0.05,
     llm_top_p = data["llm_top_p"] if "llm_top_p" in data else 0.8,
     llm_history_len = data["llm_history_len"] if "llm_history_len" in data else 3,
     api_uid = data["api_uid"] if "api_uid" in data else "",
-    emit_to_uid = do_emit_to_uid,
+    emit_to_uid = _do_emit_to_uid,
   )
 
   llm_answer_result = await ESChatLLM.bot_llm_ask_question(
@@ -562,51 +555,30 @@ async def test_bot_llm_ask_question(
     "success": True,
     "message": TAG_C001,
     "data": llm_answer_result,
+    "group_filtered_es_result": group_filtered_es_result,
+    "filtered_es_result": filtered_es_result,
+    "es_result": es_result,
   }
   
   
 
 
 
+def _do_emit_to_uid(topic, dict, uid):
+  print("_do_emit_to_uid", topic, dict, uid)
+  
+  async def fn():
+    await wsConnectionManager.send_personal_message(
+      message=json.dumps({
+        "topic": topic,
+        "dict": dict,
+        }), 
+      api_uid=uid
+    )
+  
+  asyncio.run(fn())
+  
 
 
-
-
-class WebsocketConnectionManager:
-    def __init__(self):
-        self.active_connections: list[WebSocket] = []
-        self.active_connections_map: dict[str, WebSocket] = {}
-
-    async def connect(self, websocket: WebSocket, api_uid: str):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-        self.active_connections_map[api_uid] = self.active_connections_map[api_uid] if api_uid in self.active_connections_map else self.active_connections_map[api_uid]
-
-    def disconnect(self, websocket: WebSocket, api_uid: str):
-        self.active_connections.remove(websocket)
-        del self.active_connections_map[api_uid]
-
-    async def send_personal_message(self, message: str, api_uid: str):
-        if (api_uid in self.active_connections_map):
-            await self.active_connections_map[api_uid].send_text(message)
-
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            await connection.send_text(message)
-
-
-wsConnectionManager = WebsocketConnectionManager()
-
-
-
-
-@router.websocket("/ws/{api_uid}/chatllm_answering/")
-async def websocket_endpoint(websocket: WebSocket, api_uid: str):
-    await wsConnectionManager.connect(websocket=websocket, api_uid=api_uid)
-    try:
-        while True:
-            data = await websocket.receive_text()
-    except WebSocketDisconnect:
-        wsConnectionManager.disconnect(websocket, api_uid=api_uid)
 
 

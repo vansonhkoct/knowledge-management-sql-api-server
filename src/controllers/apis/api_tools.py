@@ -4,13 +4,7 @@ from fastapi import HTTPException
 from typing import Annotated
 from tortoise.expressions import Q
 
-import sys
-import os
-
 import uuid
-
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(parent_dir + "/../../")
 
 router = APIRouter(prefix="/api/v1")
 

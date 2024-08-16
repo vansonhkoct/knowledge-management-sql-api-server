@@ -5,18 +5,13 @@ from typing import Annotated
 from tortoise.expressions import Q
 from tortoise.contrib.pydantic import pydantic_model_creator
 
-import sys
-import os
+from src.controllers.functions.user.user import create_user
+from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info, delete_access_token
 
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(parent_dir + "/../../")
+from src.models.master import KMUser, User, Role, Permission, UserCredential, UserCredentialType
 
-from controllers.functions.user.user import create_user
-from controllers.functions.user.userauth_session import fetch_loggedin_user_info, delete_access_token
 
 router = APIRouter(prefix="/api/v1")
-
-from models.master import KMUser, User, Role, Permission, UserCredential, UserCredentialType
 
 
 TAG_C001 = "C_USER001"
