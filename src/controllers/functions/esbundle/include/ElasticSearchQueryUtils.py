@@ -83,8 +83,8 @@ def generate_multi_vector_knn(
                 if voDocSearch.is_search_portion_type_page():
                     query_strings["page_content_vector"] = voDocSearch.question
                     query_strings["document_header_vector"] = voDocSearch.question
-                    voDocSearch.knn_boosts["page_content_vector"] = 0.75
-                    voDocSearch.knn_boosts["document_header_vector"] = 0.25
+                    voDocSearch.knn_boosts["page_content_vector"] = 0.88
+                    voDocSearch.knn_boosts["document_header_vector"] = 0.12
 
                 elif voDocSearch.is_search_portion_type_chunk():
                     query_strings["page_content_vector"] = voDocSearch.question

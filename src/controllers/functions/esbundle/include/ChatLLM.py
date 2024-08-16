@@ -8,7 +8,11 @@ from langchain.llms.base import LLM
 
 class ChatLLMAnswerResult:
     history: List[List[str]] = []
-    llm_output: Optional[dict] = None
+    _llm_output: Optional[dict] = None
+    
+    def llm_output(self):
+        return self._llm_output
+
 
 
 class ChatLLM(LLM):

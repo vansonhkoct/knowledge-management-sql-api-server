@@ -1,22 +1,27 @@
 
 from .ChatLLM import ChatLLM, ChatLLMAnswerResult
+from .ChatGLM4 import ChatGLM4, ChatGLM4AnswerResult
 from .ChatLLMDao.LLMVo import LLMVoAskQuestion
+from typing import Union
 import time
 import opencc
 from . import ConfigParams
 converter = opencc.OpenCC('s2t.json')
 
 
+ChatModelInterface = Union[ChatLLM, ChatGLM4]
+ChatModelAnswerResult = Union[ChatLLMAnswerResult, ChatGLM4AnswerResult]
 
 class ChatLLMController:
 
-    llm: ChatLLM = None
+    llm: ChatModelInterface = None
 
     active_llm_generators_vs_api_uids = {}
     history = []
 
     def __init__(self):
-        self.llm = ChatLLM(config_params = ConfigParams)
+        # self.llm = ChatLLM(config_params = ConfigParams)
+        self.llm = ChatGLM4(llm_model = ConfigParams.llm_model, llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
         self.llm.load_llm()
 
 
@@ -27,6 +32,7 @@ class ChatLLMController:
         timestamp = str(time.time_ns())
 
         prompt = voAskQuestion.prompt
+        history = voAskQuestion.history
 
         self._apply_llm_params(
             llm_max_token = voAskQuestion.llm_max_token,
@@ -42,7 +48,7 @@ class ChatLLMController:
         
         answer_gen = self._llm_generate_answer(
             prompt=prompt,
-            history=[],
+            history=history,
         )
         
         answer_result = self._llm_answering_loop(
@@ -54,7 +60,7 @@ class ChatLLMController:
         )
 
         answer_result_dict = {}
-        answer_result_dict[timestamp] = answer_result.llm_output
+        answer_result_dict[timestamp] = answer_result.llm_output()
 
         return {
             "answer_gen": answer_gen,
@@ -121,7 +127,7 @@ class ChatLLMController:
 
     def _llm_answering_loop(self, question, answer_generator, timestamp, api_uid, emit_to_uid):
 
-        answer_result: ChatLLMAnswerResult = None
+        answer_result: ChatModelAnswerResult = None
 
         try:
             ConfigParams.llm_dbg("bot_ask_question", "Start")
@@ -134,13 +140,13 @@ class ChatLLMController:
                 
                 history = answer_result.history
 
-                answer_result.llm_output["answer"] = converter.convert(
-                    answer_result.llm_output["answer"]
+                answer_result.llm_output()["answer"] = converter.convert(
+                    answer_result.llm_output()["answer"]
                 )
                 
                 history[-1][0] = question
         
-                ConfigParams.llm_dbg("bot_ask_question", f"llm_output: {answer_result.llm_output}")
+                ConfigParams.llm_dbg("bot_ask_question", f"llm_output: {answer_result.llm_output()}")
 
                 if api_uid is not None:
 

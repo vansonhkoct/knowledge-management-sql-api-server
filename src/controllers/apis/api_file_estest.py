@@ -494,15 +494,16 @@ async def test_bot_llm_ask_question(
 
 
   aggregated_context = []
-  
+ 
+  print(it)
   for key_file_id in group_filtered_es_result.keys():
     document_header = f"""
 
 
 ---------
-{it["metadata"]["document_remarks"]}
-{it["metadata"]["document_title"]}
-{it["metadata"]["document_summary"]}
+{it["metadata"]["document_remarks"] if "document_remarks" in it["metadata"] else ""}
+{it["metadata"]["document_title"] if "document_title" in it["metadata"] else ""}
+{it["metadata"]["document_summary"] if "document_summary" in it["metadata"] else ""}
 
 """
     document_footer = '\n\n----------\n\n'
@@ -546,15 +547,19 @@ async def test_bot_llm_ask_question(
     api_uid = data["api_uid"] if "api_uid" in data else "",
     emit_to_uid = _do_emit_to_uid,
   )
-
-  llm_answer_result = await ESChatLLM.bot_llm_ask_question(
-    vo=vo_llm,
-  )
+  
+  if not (data["skip_llm"] if "skip_llm" in data else False):
+    llm_answer_result = await ESChatLLM.bot_llm_ask_question(
+      vo=vo_llm,
+    )
+  else:
+    llm_answer_result = None
 
   return {
     "success": True,
     "message": TAG_C001,
     "data": llm_answer_result,
+    "prompt": prompt,
     "group_filtered_es_result": group_filtered_es_result,
     "filtered_es_result": filtered_es_result,
     "es_result": es_result,
