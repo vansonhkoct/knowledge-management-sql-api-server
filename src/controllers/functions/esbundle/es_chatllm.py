@@ -1,5 +1,5 @@
 
-from .include.py_any2text_parser.pdf2text import extract_pdf_file_to_text, async_extract_pdf_file_to_text
+from .include.pymupdf.pymupdf import extract_pdf_file_to_text, async_extract_pdf_file_to_text
 from .include import ConfigParams
 from .include.EmbeddingsBundle import EmbeddingsBundle
 from .include.ElasticSearchController import ElasticSearchController

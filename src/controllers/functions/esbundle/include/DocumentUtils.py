@@ -65,14 +65,14 @@ class DocumentUtils:
 
 
     @staticmethod
-    def parse_text(text_data, text):
+    def parse_text(text):
 
         regex = r'([\u4e00-\u9fff])[ ]([\u4e00-\u9fff])'
 
         updated_text = re.sub(regex, r'\1\2', text)
         updated_text = re.sub(regex, r'\1\2', updated_text)
 
-        return text_data, updated_text
+        return updated_text
 
     
     

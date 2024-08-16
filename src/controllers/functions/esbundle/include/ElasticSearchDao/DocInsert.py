@@ -12,7 +12,7 @@ def doc_insert_text_data_strat_1(
     voDocInsert: ESVoDocInsert,
     ):
     try:
-        _, updated_text = DocumentUtils.parse_text(
+        updated_text = DocumentUtils.parse_text(
             voDocInsert.text_data, 
             voDocInsert.text,
         )
@@ -64,8 +64,7 @@ def doc_insert_text_data_strat_2(
     ):
     try:
         
-        _, updated_text = DocumentUtils.parse_text(
-            voDocInsert.text_data, 
+        updated_text = DocumentUtils.parse_text(
             voDocInsert.text,
         )
 

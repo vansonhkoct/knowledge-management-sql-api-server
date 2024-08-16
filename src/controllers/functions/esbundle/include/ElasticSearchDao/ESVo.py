@@ -72,7 +72,6 @@ class ESVoDocSearch:
 
 class ESVoDocInsert:
     index_name: str
-    text_data: dict
     text: str
     chunk_size: int = 350
     chunk_overlap: int = 10
@@ -82,7 +81,6 @@ class ESVoDocInsert:
     def __init__(
         self,
         index_name: str,
-        text_data: dict,
         text: str,
         chunk_size: int = 350,
         chunk_overlap: int = 10,
@@ -90,7 +88,6 @@ class ESVoDocInsert:
         is_testrun: bool = False,
         ):
             self.index_name = index_name
-            self.text_data = text_data
             self.text = text
             self.chunk_size = chunk_size
             self.chunk_overlap = chunk_overlap

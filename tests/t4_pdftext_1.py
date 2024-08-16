@@ -38,7 +38,7 @@ def extract_pdf_file_to_text(
         # infer_table_structure=True, 
         # ocr_languages=,  # changing to optional for deprecation
         languages=["chi_tra"],
-        model_name="yolox",
+        # model_name="yolox",
     )
     
     # print(elements)
@@ -58,15 +58,44 @@ def extract_pdf_file_to_text(
     
     text_data = json.loads(jsondump_data)
     
-    print(json.dumps(text_data, ensure_ascii=False, separators=(',', ':')))
+    # print(json.dumps(text_data, ensure_ascii=False, separators=(',', ':')))
     
     
+    
+    pdf_bytes = file.read()
+    table_layouts_data = pdf_to_pages_as_tables(pdf_bytes, filename, each=pil_img_find_tables, scale=0.75)
+    
+    
+    ##
+    ## LOAD text_data
+    
+    sparse_dict = create_sparse_dict_of_overall_table_layouts(text_data, table_layouts_data)
+    
+    # export_sparse_dict_representation_as_csv(sparse_dict, filename)
+    try:
+        estimate_tables_and_update_text_data_by_sparse_dict(sparse_dict)
+    except Exception as e:
+        print(e)
+        pass
+    
+    filtered_text_data = obtain_filtered_text_data(text_data)
+
+    text = reformat_paged_text_data(
+        filtered_text_data, 
+        document_file_name = filename,
+        document_file_url = "",
+        meta_data_mapping = meta_data_mapping,
+    )
+
+    print(filtered_text_data, text)
+
+
 
 import io
 
-import os
-os.environ["OCR_AGENT"] = "unstructured.partition.utils.ocr_models.paddle_ocr.OCRAgentPaddle"
-os.environ["DEFAULT_PADDLE_LANG"] = "ch"
+# import os
+# os.environ["OCR_AGENT"] = "unstructured.partition.utils.ocr_models.paddle_ocr.OCRAgentPaddle"
+# os.environ["DEFAULT_PADDLE_LANG"] = "ch"
 
 with open("./tests/665b3f9fac7044122d9b3d98_EDBCM24035C.pdf", "rb") as pdf_file:
     pdf_binary_io = io.BytesIO(pdf_file.read())

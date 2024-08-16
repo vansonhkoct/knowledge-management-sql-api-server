@@ -149,7 +149,7 @@ async def __reparse_file_as_docs(
   
   print("\n==== PART 2 ===\n")
   
-  text_data, text = await ESChatLLM.async_extract_pdf_file_to_text(
+  _, text = await ESChatLLM.async_extract_pdf_file_to_text(
     filename=item.filename,
     file=r_file,
     meta_data_mapping = {
@@ -196,7 +196,6 @@ async def __reparse_file_as_docs(
   
   vo = ESVoDocInsert(
     index_name = str(item.party_id),
-    text_data = text_data,
     text = text,
     extra_metadata = extra_metadata,
     is_testrun = is_testrun,
