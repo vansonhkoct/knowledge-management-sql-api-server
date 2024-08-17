@@ -186,6 +186,14 @@ class ChatMessageFeedback(Model, _ModelBaseAccess, _ModelBaseBody):
     def __str__(self):
         return self.name
 
+class Log(Model, _ModelBaseAccess, _ModelBaseBody):
+    user = fields.ForeignKeyField("models.User", related_name="logs", null=True)
+    type = fields.CharField(max_length=10, index=True, null=True)
+    field1 = fields.TextField(null=True)
+    field2 = fields.TextField(null=True)
+    field3 = fields.TextField(null=True)
+    def __str__(self):
+        return self.name
 
 
 # async def run():
