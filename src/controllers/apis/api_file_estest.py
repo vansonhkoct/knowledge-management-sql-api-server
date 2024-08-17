@@ -29,6 +29,7 @@ from src.controllers.functions.esbundle.include.ChatLLMDao.LLMVo import LLMVoAsk
 
 from src.models.master import File, KMFile
 from src.models.master import Category, KMCategory
+from src.models.master import Log
 
 
 
@@ -621,6 +622,25 @@ async def test_bot_llm_ask_question(
       llm_answer_result = None
 
     is_busy = False
+
+
+    # Add log
+    await Log.create(**{
+      "type": "chatllm",
+      "field1": json.dumps({
+        "index_name": vo_es.index_name,
+        "question": vo_es.question,
+      }, ensure_ascii=False),
+      "field2": json.dumps({
+        "data": {
+          "answer_result": llm_answer_result["answer_result"],
+        },
+        "suggested_token": suggested_token,
+        "prompt_token": prompt_token,
+        "input_llm_max_token": input_llm_max_token,
+      }, ensure_ascii=False),
+    })
+
 
     return {
       "success": True,
