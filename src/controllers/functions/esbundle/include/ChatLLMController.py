@@ -14,22 +14,34 @@ ChatModelAnswerResult = Union[ChatLLMAnswerResult, ChatGLM4AnswerResult]
 
 class ChatLLMController:
 
-    llm_collections: dict[str, ChatModelInterface] = None
+    llm_collections: dict[str, ChatModelInterface] = {}
 
     active_llm_generators_vs_api_uids = {}
     history = []
 
     def __init__(self):
-        chatglm2 = ChatLLM(llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
-        chatglm2.load_llm()
+        pass
 
-        chatglm4 = ChatGLM4(llm_model = ConfigParams.llm_model, llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
-        chatglm4.load_llm()
 
-        self.llm_collections = {
-            "chatglm2": chatglm2,
-            "chatglm4": chatglm4,
-        }
+
+    def _get_llm_model_by_name(
+        self,
+        llm_model_name: str = "chatglm2",
+    ):
+        if llm_model_name not in self.llm_collections:
+            if llm_model_name == "chatglm2":
+                chatglm2 = ChatLLM(llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
+                chatglm2.load_llm()
+                self.llm_collections[llm_model_name] = chatglm2
+
+            elif llm_model_name == "chatglm4":
+                chatglm4 = ChatGLM4(llm_model = ConfigParams.llm_model, llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
+                chatglm4.load_llm()
+                self.llm_collections[llm_model_name] = chatglm4
+        
+        return self.llm_collections[llm_model_name]
+    
+    
 
     def bot_ask_question(
         self, 
@@ -37,8 +49,7 @@ class ChatLLMController:
     ):
         timestamp = str(time.time_ns())
         
-        llm_model_name = voAskQuestion.llm_model_name or "chatglm2"
-        llm_model = self.llm_collections[llm_model_name]
+        llm_model = self._get_llm_model_by_name(voAskQuestion.llm_model_name)
 
         answer_gen = self._llm_generate_answer(
             prompt = voAskQuestion.prompt,
