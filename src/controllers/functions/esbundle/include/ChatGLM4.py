@@ -97,7 +97,9 @@ class ChatGLM4():
       streaming: bool = True,
       system_prompt = "你是一個學校教職員，負責閱讀並分析香港教育局/教育統籌局的每年推出的通告或其他工作文件。", 
       max_length = 2500, 
-      top_p = 0.8, 
+      top_p = 0.92, 
+      top_k = 3,
+      repetition_penalty = 1.2,
       temperature = 0.01,
       ):
 
@@ -108,6 +110,8 @@ class ChatGLM4():
         system_prompt = system_prompt,
         max_length = max_length,
         top_p = top_p,
+        top_k = top_k,
+        repetition_penalty = repetition_penalty,
         temperature = temperature,
       )
       
@@ -126,6 +130,8 @@ class ChatGLM4():
       system_prompt = "你是一個學校教職員，負責閱讀並分析香港教育局/教育統籌局的每年推出的通告或其他工作文件。", 
       max_length = 2500, 
       top_p = 0.8, 
+      top_k = 1,
+      repetition_penalty = 1.2,
       temperature = 0.01):
       
         print(user_history)
@@ -161,9 +167,10 @@ class ChatGLM4():
             "max_new_tokens": max_length,
             "do_sample": True,
             "top_p": top_p,
+            "top_k": top_k,
+            "repetition_penalty": repetition_penalty,
             "temperature": temperature,
             "stopping_criteria": StoppingCriteriaList([stop]),
-            "repetition_penalty": 1.2,
             "eos_token_id": model.config.eos_token_id,
         }
         thread = Thread(target=model.generate, kwargs=generate_kwargs)

@@ -1,9 +1,11 @@
 from fastapi import WebSocket
+import asyncio
 
 class WebsocketConnectionManager:
   def __init__(self):
     self.active_connections: list[WebSocket] = []
     self.active_connections_map: dict[str, WebSocket] = {}
+    self.lifo_cache_map: dict[str, dict] = {}
 
   async def connect(self, websocket: WebSocket, api_uid: str):
     print("websocket_endpoint >> ", "connect", api_uid)
@@ -16,12 +18,17 @@ class WebsocketConnectionManager:
     print("websocket_endpoint >> ", "disconnect", api_uid)
     self.active_connections.remove(websocket)
     del self.active_connections_map[api_uid]
+    if api_uid in self.lifo_cache_map:
+      del self.lifo_cache_map[api_uid]
 
-  async def send_personal_message(self, message: str, api_uid: str):
+  async def send_personal_message(self, message: str, api_uid: str, is_lifo: bool = False):
     print("websocket_endpoint >> ", "sss", api_uid)
     if (api_uid in self.active_connections_map):
-      print("websocket_endpoint >> ", "send_personal_message", api_uid)
-      await self.active_connections_map[api_uid].send_text(message)
+      if (is_lifo):
+        self.lifo_cache_map[api_uid] = message
+      else:
+        print("websocket_endpoint >> ", "send_personal_message", api_uid)
+        await self.active_connections_map[api_uid].send_text(message)
 
   async def broadcast(self, message: str):
     for connection in self.active_connections:
@@ -31,3 +38,18 @@ class WebsocketConnectionManager:
 wsConnectionManager: WebsocketConnectionManager = WebsocketConnectionManager()
 
 
+async def lifo_engine():
+    while True:
+        # Do some async operations here
+        api_uids = list(wsConnectionManager.lifo_cache_map.keys())
+        for api_uid in api_uids:
+            print("websocket_endpoint >> ", "send_personal_message (lifo_engine)", api_uid)
+            await wsConnectionManager.active_connections_map[api_uid].send_text(wsConnectionManager.lifo_cache_map[api_uid])
+            del wsConnectionManager.lifo_cache_map[api_uid]
+
+
+        # Wait for 0.25 seconds
+        await asyncio.sleep(0.25)
+
+
+asyncio.ensure_future(lifo_engine())

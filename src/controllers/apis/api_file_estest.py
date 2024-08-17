@@ -41,6 +41,7 @@ router = APIRouter(prefix="/api/v1")
 
 TAG_C001 = "C_FILE_ESTEST001"
 TAG_E001 = "E_FILE_ESTEST001"
+TAG_E002 = "E_FILE_ESTEST002"
 
 @router.post("/file_estest/initializeES")
 async def initializeES(
@@ -442,72 +443,89 @@ async def test_bot_es_doc_migrate_update_all_data_without_data_strategy_to_becom
 
 
 
+is_busy: bool = False
+
 
 @router.post("/file_estest/test_llm_ask_question")
 async def test_bot_llm_ask_question(
   request: Request,
 ):
-
-  data = await request.json()
+  global is_busy
   
-  vo_es = ESVoDocSearch(
-    index_name = data["index_name"],
-    question = data["question"] if "question" in data else None,
-    query_strings = data["query_strings"] if "query_strings" in data else None,
-    query_vectors = data["query_vectors"] if "query_vectors" in data else None,
-    knn_boosts = data["knn_boosts"] if "knn_boosts" in data else None,
-    document_category = data["document_category"],
-    k = data["k"] if "k" in data else 10,
-    num_candidates = data["num_candidates"] if "num_candidates" in data else 100,
-    data_strategy = data["data_strategy"] if "data_strategy" in data else None,
-    data_portion_type = data["data_portion_type"] if "data_portion_type" in data else None,
-    must_match_document_category = data["must_match_document_category"] if "must_match_document_category" in data else True,
-    should_match_document_tags = data["should_match_document_tags"] if "should_match_document_tags" in data else 0,
-    should_match_document_title = data["should_match_document_title"] if "should_match_document_title" in data else 0,
-    should_match_document_summary = data["should_match_document_summary"] if "should_match_document_summary" in data else 0,
-    should_match_document_text = data["should_match_document_text"] if "should_match_document_text" in data else 0,
-  )
+  if is_busy:
+    raise HTTPException(
+      status_code=400,
+      detail={
+        "message": TAG_E002,
+        "error": "Server busy",
+      }
+    )
 
-  es_result = await ESChatLLM.bot_es_search_multi_vector(
-    vo=vo_es,
-  )
+  is_busy = True
+
+  try:
+    data = await request.json()
+    
+    vo_es = ESVoDocSearch(
+      index_name = data["index_name"],
+      question = data["question"] if "question" in data else None,
+      query_strings = data["query_strings"] if "query_strings" in data else None,
+      query_vectors = data["query_vectors"] if "query_vectors" in data else None,
+      knn_boosts = data["knn_boosts"] if "knn_boosts" in data else None,
+      document_category = data["document_category"],
+      k = data["k"] if "k" in data else 10,
+      num_candidates = data["num_candidates"] if "num_candidates" in data else 100,
+      data_strategy = data["data_strategy"] if "data_strategy" in data else None,
+      data_portion_type = data["data_portion_type"] if "data_portion_type" in data else None,
+      must_match_document_category = data["must_match_document_category"] if "must_match_document_category" in data else True,
+      should_match_document_tags = data["should_match_document_tags"] if "should_match_document_tags" in data else 0,
+      should_match_document_title = data["should_match_document_title"] if "should_match_document_title" in data else 0,
+      should_match_document_summary = data["should_match_document_summary"] if "should_match_document_summary" in data else 0,
+      should_match_document_text = data["should_match_document_text"] if "should_match_document_text" in data else 0,
+    )
+
+    es_result = await ESChatLLM.bot_es_search_multi_vector(
+      vo=vo_es,
+    )
 
 
-  def do_filter_es_result_item(it):
-    if it["score"] / it["record_max_score"] < 0.75:
-      return False
-    if it["score"] / it["possible_max_score"] < 0.60:
-      return False
-    return True
+    def do_filter_es_result_item(it):
+      if it["score"] / it["record_max_score"] < 0.75:
+        return False
+      if it["score"] / it["possible_max_score"] < 0.60:
+        return False
+      return True
 
-  filtered_es_result = [ it for it in es_result if ( do_filter_es_result_item(it) )]
+    filtered_es_result = [ it for it in es_result if ( do_filter_es_result_item(it) )]
+    
+    
+    # Group Using a dictionary-based approach
+    group_filtered_es_result = {}
+    for it in filtered_es_result:
+        if it["file_id"] not in group_filtered_es_result:
+            group_filtered_es_result[it["file_id"]] = []
+
+        group_filtered_es_result[it["file_id"]].append(it)
+
+
+    aggregated_context = []
   
-  
-  # Group Using a dictionary-based approach
-  group_filtered_es_result = {}
-  for it in filtered_es_result:
-      if it["file_id"] not in group_filtered_es_result:
-          group_filtered_es_result[it["file_id"]] = []
-
-      group_filtered_es_result[it["file_id"]].append(it)
-
-
-  aggregated_context = []
- 
-  print(it)
-  for key_file_id in group_filtered_es_result.keys():
-    document_header = f"""
+    print(it)
+    for key_file_id in group_filtered_es_result.keys():
+      document_header = f"""
 
 
 ---------
-{it["metadata"]["document_remarks"] if "document_remarks" in it["metadata"] else ""}
-{it["metadata"]["document_title"] if "document_title" in it["metadata"] else ""}
-{it["metadata"]["document_summary"] if "document_summary" in it["metadata"] else ""}
+{group_filtered_es_result[key_file_id][0]["metadata"]["document_remarks"] if "document_remarks" in it["metadata"] else ""}
+{group_filtered_es_result[key_file_id][0]["metadata"]["document_title"] if "document_title" in it["metadata"] else ""}
+{group_filtered_es_result[key_file_id][0]["metadata"]["document_summary"] if "document_summary" in it["metadata"] else ""}
 
 """
-    document_footer = '\n\n----------\n\n'
-    document_content_array = [ it["content"] for it in group_filtered_es_result[key_file_id] ]
-    document_content = (
+
+
+      document_footer = '\n\n----------\n\n'
+      document_content_array = [ it["content"] for it in group_filtered_es_result[key_file_id] ]
+      document_content = (
 """
 
 ...
@@ -515,7 +533,7 @@ async def test_bot_llm_ask_question(
 """.join(document_content_array)
 
 )
-    document_content = f"""
+      document_content = f"""
 
 ...
 
@@ -525,46 +543,65 @@ async def test_bot_llm_ask_question(
 
 """
 
-    aggregated_context.append(document_header)
-    aggregated_context.append(document_content)
-    aggregated_context.append(document_footer)
+      aggregated_context.append(document_header)
+      aggregated_context.append(document_content)
+      aggregated_context.append(document_footer)
     
 
-  prompt = "".join([
-    "已知信息：\n",
-    "".join(aggregated_context),
-    "\n\n根據上述已知信息，簡潔和專業的來回答用户的問題。如果無法從中得到答案，請説 “根據已知信息無法回答該問題” 或 “沒有提供足夠的相關信息”，不允許在答案中添加其他任何成分，答案請使用中文。 問題是：",
-    data["question"],
-  ])
+    prompt = "".join([
+      "已知信息：\n",
+      "".join(aggregated_context),
+      "\n\n根據上述已知信息，簡潔和專業的來回答用户的問題。如果無法從中得到答案，請説 “根據已知信息無法回答該問題” 或 “沒有提供足夠的相關信息”，不允許在答案中添加其他任何成分，答案請使用中文。 問題是：",
+      data["question"],
+    ])
+    
+    suggested_token = 8192
+    prompt_token = len(prompt) + 50
+    input_llm_max_token = data["llm_max_token"] if "llm_max_token" in data else 0
+    
+    llm_max_token = max(input_llm_max_token, suggested_token, prompt_token)
 
-  vo_llm = LLMVoAskQuestion(
-    prompt = prompt,
-    llm_max_token = data["llm_max_token"] if "llm_max_token" in data else 8192,
-    llm_temperature = data["llm_temperature"] if "llm_temperature" in data else 0.05,
-    llm_top_p = data["llm_top_p"] if "llm_top_p" in data else 0.8,
-    llm_history_len = data["llm_history_len"] if "llm_history_len" in data else 3,
-    api_uid = data["api_uid"] if "api_uid" in data else "",
-    emit_to_uid = _do_emit_to_uid,
-  )
-  
-  if not (data["skip_llm"] if "skip_llm" in data else False):
-    llm_answer_result = await ESChatLLM.bot_llm_ask_question(
-      vo=vo_llm,
+    vo_llm = LLMVoAskQuestion(
+      prompt = prompt,
+      llm_max_token = llm_max_token,
+      llm_temperature = data["llm_temperature"] if "llm_temperature" in data else 0.03,
+      llm_top_p = data["llm_top_p"] if "llm_top_p" in data else 0.92,
+      llm_top_k = data["llm_top_k"] if "llm_top_k" in data else 4,
+      llm_history_len = data["llm_history_len"] if "llm_history_len" in data else 3,
+      api_uid = data["api_uid"] if "api_uid" in data else "",
+      emit_to_uid = _do_emit_to_uid,
     )
-  else:
-    llm_answer_result = None
+    
+    if not (data["skip_llm"] if "skip_llm" in data else False):
+      llm_answer_result = await ESChatLLM.bot_llm_ask_question(
+        vo=vo_llm,
+      )
+    else:
+      llm_answer_result = None
 
-  return {
-    "success": True,
-    "message": TAG_C001,
-    "data": llm_answer_result,
-    "prompt": prompt,
-    "group_filtered_es_result": group_filtered_es_result,
-    "filtered_es_result": filtered_es_result,
-    "es_result": es_result,
-  }
-  
-  
+    is_busy = False
+
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": llm_answer_result,
+      "prompt": prompt,
+      "group_filtered_es_result": group_filtered_es_result,
+      "filtered_es_result": filtered_es_result,
+      "es_result": es_result,
+    }
+    
+  except Exception as e:
+    is_busy = False
+    stacktrace = traceback.format_exc()
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+      }
+    )
 
 
 
@@ -577,7 +614,8 @@ def _do_emit_to_uid(topic, dict, uid):
         "topic": topic,
         "dict": dict,
         }), 
-      api_uid=uid
+      api_uid=uid,
+      is_lifo=True,
     )
   
   asyncio.run(fn())

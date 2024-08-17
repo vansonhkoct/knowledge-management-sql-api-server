@@ -71,12 +71,23 @@ def doc_insert_text_data_strat_2(
         # load txt file as Langchain Document chunks
         print("processing docs_by_chunk...")
         docs_by_chunk = DocumentUtils.load_oc_text(updated_text,
-                                          voDocInsert.chunk_size, voDocInsert.chunk_overlap, 
+                                          chunk_size = 300, chunk_overlap = 10,
                                           use_text_splitter=True,
                                           extra_metadata={
                                               **voDocInsert.extra_metadata,
                                               "data_strategy": _constants.DATA_STRATEGY_2,
                                               "data_portion_type": _constants.DATA_PORTION_TYPE_CHUNK,
+                                          })
+
+        # load txt file as Langchain Document chunks
+        print("processing docs_by_chunk990...")
+        docs_by_chunk990 = DocumentUtils.load_oc_text(updated_text,
+                                          chunk_size = 990, chunk_overlap = 35,
+                                          use_text_splitter=True,
+                                          extra_metadata={
+                                              **voDocInsert.extra_metadata,
+                                              "data_strategy": _constants.DATA_STRATEGY_2,
+                                              "data_portion_type": _constants.DATA_PORTION_TYPE_CHUNK990,
                                           })
 
         # load txt file as Langchain Document pages
@@ -91,8 +102,7 @@ def doc_insert_text_data_strat_2(
 
         index_name = f"{_constants.ES_INDEX_ACTIVE_GLOBAL_PREFIX}{voDocInsert.index_name}"
 
-        ids_by_chunk = []
-        ids_by_page = []
+        ids = []
 
         if not voDocInsert.is_testrun:
             
@@ -106,16 +116,16 @@ def doc_insert_text_data_strat_2(
 
             document_header = "\n".join(document_header_candidates)
             document_header_vector = embedding.embed_query(document_header)
+            
+            docs = docs_by_chunk + docs_by_chunk990 + docs_by_page
 
-            for doc in docs_by_chunk:
-                print(f"vector `{index_name}` chunk vector")
+            for doc in docs:
+                print(f"doc_insert_text_data_strat_2 -> `{index_name}`")
 
-                print(f"vector `{index_name}` page_content_vector")
-                
                 page_content = f"{doc.page_content}"
                 page_content_vector = embedding.embed_query(page_content)
                 
-                print(f"vector `{index_name}` document header + page_content_vector")
+                print(f"doc_insert_text_data_strat_2 -> `{index_name}` document header + page_content_vector")
                 
                 page_content_w_header = f"{document_header}\n\n\n{doc.page_content}"
                 page_content_w_header_vector = embedding.embed_query(page_content_w_header)
@@ -132,39 +142,10 @@ def doc_insert_text_data_strat_2(
                         "metadata": doc.metadata,
                     },
                 )
-                ids_by_chunk.append(objApiResponse["_id"])
+                ids.append(objApiResponse["_id"])
 
-            for doc in docs_by_page:
-
-                # create document page header, page content, page content winpaged
-                print(f"vector `{index_name}` page_content_vector")
-                
-                page_content = f"{doc.page_content}"
-                page_content_vector = embedding.embed_query(page_content)
-                
-                print(f"vector `{index_name}` document header + page_content_vector")
-                
-                page_content_w_header = f"{document_header}\n\n\n{doc.page_content}"
-                page_content_w_header_vector = embedding.embed_query(page_content_w_header)
-                
-                print(f"indexing `{index_name}`")
-
-                # ES Create Index and obtain new ID!
-                objApiResponse = es_client.index(
-                    index=f"{index_name}",
-                    body={
-                        "document_header": document_header,
-                        "document_header_vector": document_header_vector,
-                        "page_content": page_content,
-                        "page_content_vector": page_content_vector,
-                        "page_content_w_header": page_content_w_header,
-                        "page_content_w_header_vector": page_content_w_header_vector,
-                        "metadata": doc.metadata,
-                    },
-                )
-                ids_by_page.append(objApiResponse["_id"])
-        
-        return docs_by_chunk + docs_by_page, ids_by_chunk + ids_by_page, index_name
+        return docs, ids
+    
     except Exception as e:
         print(e)
         raise e

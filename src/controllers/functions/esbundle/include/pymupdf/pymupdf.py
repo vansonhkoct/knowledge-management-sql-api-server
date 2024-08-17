@@ -1,6 +1,7 @@
 import pymupdf4llm
 import pymupdf
 import re
+import io
 
 from typing import (
     BinaryIO,
@@ -19,13 +20,27 @@ def extract_pdf_file_to_text(
     meta_data_mapping = None,
 ):
     page_content_array = []
-    doc = pymupdf.Document(stream=file)
+    pdf_binary_io = io.BytesIO(file.read())
+    doc = pymupdf.Document(stream=pdf_binary_io)
     for index, page in enumerate(doc):
-        md_text = pymupdf4llm.to_markdown(doc=doc, pages=[index])
-        md_text = re.sub(r'\*\*', '', md_text)
-        page_content_array.append(md_text)
+        try:
+            md_text = pymupdf4llm.to_markdown(doc=doc, pages=[index])
+            md_text = re.sub(r'\*\*', '', md_text)
+            page_content_array.append(md_text)
+        except Exception as e:
+            print(e)
+            print("Continue....")
+            plain_text = page.get_text()
+            plain_text = re.sub(r'\*\*', '', plain_text)
+            page_content_array.append(plain_text)
 
-
+    page_content_array, text = _reformat_paged_text_data(
+        page_content_array=page_content_array,
+        document_file_name=filename,
+        meta_data_mapping=meta_data_mapping,
+    )
+    
+    return page_content_array, text
 
 
 def _reformat_paged_text_data(
@@ -63,17 +78,17 @@ async def async_extract_pdf_file_to_text(
     meta_data_mapping = None,
 ):
     def fn():
-        filtered_text_data, text = extract_pdf_file_to_text(
+        page_content_array, text = extract_pdf_file_to_text(
             filename=filename,
             file=file,
             meta_data_mapping=meta_data_mapping,
         )
-        return filtered_text_data, text
+        return page_content_array, text
 
     loop = asyncio.get_running_loop()
-    filtered_text_data, text = await loop.run_in_executor(
+    page_content_array, text = await loop.run_in_executor(
         None, 
         fn, 
         )
-    return filtered_text_data, text
+    return page_content_array, text
 

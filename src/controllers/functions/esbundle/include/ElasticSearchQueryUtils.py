@@ -79,18 +79,11 @@ def generate_multi_vector_knn(
             query_strings = {}
             
             if voDocSearch.is_search_strategy_2():
-                
-                if voDocSearch.is_search_portion_type_page():
-                    query_strings["page_content_vector"] = voDocSearch.question
-                    query_strings["document_header_vector"] = voDocSearch.question
-                    voDocSearch.knn_boosts["page_content_vector"] = 0.88
-                    voDocSearch.knn_boosts["document_header_vector"] = 0.12
-
-                elif voDocSearch.is_search_portion_type_chunk():
-                    query_strings["page_content_vector"] = voDocSearch.question
-                    query_strings["document_header_vector"] = voDocSearch.question
-                    voDocSearch.knn_boosts["page_content_vector"] = 0.92
-                    voDocSearch.knn_boosts["document_header_vector"] = 0.08
+            
+                query_strings["page_content_vector"] = voDocSearch.question
+                query_strings["document_header_vector"] = voDocSearch.question
+                voDocSearch.knn_boosts["page_content_vector"] = 0.941
+                voDocSearch.knn_boosts["document_header_vector"] = 0.069
 
             else:
                 
@@ -141,19 +134,11 @@ def generate_multi_vector_knn(
             }
         })
         
-        if voDocSearch.is_search_portion_type_page():
+        if voDocSearch.has_search_portion_type():
             qbool["must"] = [] if "must" not in qbool else qbool["must"]
             qbool["must"].append({
                 "term": {
-                    "metadata.data_portion_type.keyword": _constants.DATA_PORTION_TYPE_PAGE,
-                }
-            })
-
-        elif voDocSearch.is_search_portion_type_chunk():
-            qbool["must"] = [] if "must" not in qbool else qbool["must"]
-            qbool["must"].append({
-                "term": {
-                    "metadata.data_portion_type.keyword": _constants.DATA_PORTION_TYPE_CHUNK,
+                    "metadata.data_portion_type.keyword": voDocSearch.get_search_portion_type(),
                 }
             })
             

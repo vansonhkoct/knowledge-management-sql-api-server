@@ -20,8 +20,8 @@ class ChatLLMController:
     history = []
 
     def __init__(self):
-        # self.llm = ChatLLM(config_params = ConfigParams)
-        self.llm = ChatGLM4(llm_model = ConfigParams.llm_model, llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
+        self.llm = ChatLLM(llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
+        # self.llm = ChatGLM4(llm_model = ConfigParams.llm_model, llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
         self.llm.load_llm()
 
 
@@ -31,28 +31,18 @@ class ChatLLMController:
     ):
         timestamp = str(time.time_ns())
 
-        prompt = voAskQuestion.prompt
-        history = voAskQuestion.history
-
-        self._apply_llm_params(
-            llm_max_token = voAskQuestion.llm_max_token,
-            llm_temperature = voAskQuestion.llm_temperature,
-            llm_top_p = voAskQuestion.llm_top_p,
-            llm_history_len = voAskQuestion.llm_history_len,
-        )
-
-
-        # VANTODO: does not support history at the moment
-        self._clear_history()
-        
-        
         answer_gen = self._llm_generate_answer(
-            prompt=prompt,
-            history=history,
+            prompt=voAskQuestion.prompt,
+            history=voAskQuestion.history,
+            llm_max_token=voAskQuestion.llm_max_token,
+            llm_temperature=voAskQuestion.llm_temperature,
+            llm_top_p=voAskQuestion.llm_top_p,
+            llm_top_k=voAskQuestion.llm_top_k,
+            llm_repetition_penalty=voAskQuestion.llm_repetition_penalty,
         )
         
         answer_result = self._llm_answering_loop(
-            question = prompt,
+            question = voAskQuestion.prompt,
             answer_generator = answer_gen,
             timestamp = timestamp,
             api_uid=voAskQuestion.api_uid,
@@ -92,31 +82,27 @@ class ChatLLMController:
 
 
 
-
-
-    def _apply_llm_params(
+    def _llm_generate_answer(
         self, 
-        llm_max_token=8192,
-        llm_temperature=0.01,
-        llm_top_p=0.8,
-        llm_history_len=3,
-    ):
-        self.llm.max_token = llm_max_token             # 0 ~ 32768  (integer)
-        self.llm.temperature = llm_temperature         # 0 ~ 1  (float, step = 0.01)
-        self.llm.top_p = llm_top_p                     # 0 ~ 1  (float, step = 0.01)
-        self.llm.history_len = llm_history_len         # 0 ~ 10 (integer)
-
-
-    def _clear_history(self):
-        self.history = []
-        
-
-
-
-
-    def _llm_generate_answer(self, prompt, history):
+        prompt, 
+        history,
+        llm_max_token,
+        llm_temperature,
+        llm_top_p,
+        llm_top_k,
+        llm_repetition_penalty,
+        ):
         try:
-            for answer_result in self.llm.generator_answer(prompt=prompt, history=history, streaming=True):
+            for answer_result in self.llm.generator_answer(
+                prompt=prompt, 
+                history=history, 
+                streaming=True,
+                max_length = llm_max_token, 
+                top_p = llm_top_p, 
+                top_k = llm_top_k,
+                repetition_penalty = llm_repetition_penalty,
+                temperature = llm_temperature,
+                ):
                 yield answer_result
         finally:
             ConfigParams.llm_dbg("bot_ask_question", "End of _llm_generate_answer")
@@ -151,7 +137,7 @@ class ChatLLMController:
                 if api_uid is not None:
 
                     dict = {}
-                    dict[timestamp] = answer_result.llm_output
+                    dict[timestamp] = answer_result.llm_output()
                     
                     if emit_to_uid is not None:
                         emit_to_uid(
