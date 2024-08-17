@@ -13,6 +13,27 @@ from tempfile import SpooledTemporaryFile
 
 import asyncio
 
+import unicodedata
+
+def _is_standard_char(char):
+    try:
+        name = unicodedata.name(char)
+        return ord(char) <= 127 or name.startswith("LATIN") or name.startswith("GREEK") or name.startswith("CYRILLIC")
+    except (ValueError, TypeError):
+        return False
+
+def _containment_proportion_of_non_standard_chars(text):
+    total_count = 0
+    abnormal_count = 0
+    for char in text:
+        total_count += 1
+        if not _is_standard_char(char):
+            abnormal_count += 1
+
+    return abnormal_count / total_count
+
+
+
 
 def extract_pdf_file_to_text(
     filename: str = None,
@@ -24,15 +45,21 @@ def extract_pdf_file_to_text(
     doc = pymupdf.Document(stream=pdf_binary_io)
     for index, page in enumerate(doc):
         try:
-            md_text = pymupdf4llm.to_markdown(doc=doc, pages=[index])
+            md_text = pymupdf4llm.to_markdown(doc=doc, pages=[index], write_images = False)
             md_text = re.sub(r'\*\*', '', md_text)
-            page_content_array.append(md_text)
+            if (_containment_proportion_of_non_standard_chars(md_text) > 0.60):
+                page_content_array.append("")
+            else:
+                page_content_array.append(md_text)
         except Exception as e:
             print(e)
             print("Continue....")
             plain_text = page.get_text()
             plain_text = re.sub(r'\*\*', '', plain_text)
-            page_content_array.append(plain_text)
+            if (_containment_proportion_of_non_standard_chars(plain_text) > 0.60):
+                page_content_array.append("")
+            else:
+                page_content_array.append(plain_text)
 
     page_content_array, text = _reformat_paged_text_data(
         page_content_array=page_content_array,

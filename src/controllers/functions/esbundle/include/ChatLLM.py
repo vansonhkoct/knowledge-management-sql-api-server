@@ -83,6 +83,7 @@ class ChatLLM(LLM):
     def generator_answer(self, prompt: str,
                         history: List[List[str]] = [],
                         streaming: bool = True,
+                        system_prompt = "你是一個文件閱讀助手，負責閱讀並分析香港教育局 / 教育相關的每年推出的通告或任何其他工作文件。", 
                         max_length = 2500, 
                         top_p = 0.8, 
                         top_k = 1,
@@ -90,6 +91,8 @@ class ChatLLM(LLM):
                         temperature = 0.01,
                         converter: opencc.OpenCC = None,
                         ):
+
+        _prompt = system_prompt + prompt
 
         if streaming:
             history += [[]]
@@ -100,7 +103,7 @@ class ChatLLM(LLM):
             if self.model_type == "InternLM":
                 response = self.model.stream_chat(
                     self.tokenizer,
-                    prompt,
+                    _prompt,
                     history=_history,
                     max_length=max_length,
                     temperature=temperature,
@@ -109,7 +112,7 @@ class ChatLLM(LLM):
             else:
                 response = self.model.stream_chat(
                     self.tokenizer,
-                    prompt,
+                    _prompt,
                     history=_history,
                     max_length=max_length,
                     temperature=temperature,
@@ -121,7 +124,7 @@ class ChatLLM(LLM):
                     converter(stream_resp) if converter is not None else stream_resp
                 )
 
-                history[-1] = [prompt, _stream_resp]
+                history[-1] = [_prompt, _stream_resp]
                 answer_result = ChatLLMAnswerResult()
                 answer_result.history = history
                 answer_result._llm_output = {"answer": _stream_resp}
@@ -129,14 +132,14 @@ class ChatLLM(LLM):
         else:
             response, _ = self.model.chat(
                 self.tokenizer,
-                prompt,
+                _prompt,
                 history=history[-self.history_len:] if self.history_len > 0 else [],
                 max_length=max_length,
                 temperature=temperature,
                 top_p=top_p
             )
             self.clear_torch_cache()
-            history += [[prompt, response]]
+            history += [[_prompt, response]]
             answer_result = ChatLLMAnswerResult()
             answer_result.history = history
             answer_result._llm_output = {"answer": response}

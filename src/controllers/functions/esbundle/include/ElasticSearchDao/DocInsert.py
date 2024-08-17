@@ -82,7 +82,7 @@ def doc_insert_text_data_strat_2(
         # load txt file as Langchain Document chunks
         print("processing docs_by_chunk990...")
         docs_by_chunk990 = DocumentUtils.load_oc_text(updated_text,
-                                          chunk_size = 990, chunk_overlap = 35,
+                                          chunk_size = 740, chunk_overlap = 10,
                                           use_text_splitter=True,
                                           extra_metadata={
                                               **voDocInsert.extra_metadata,
@@ -100,32 +100,34 @@ def doc_insert_text_data_strat_2(
                                               "data_portion_type": _constants.DATA_PORTION_TYPE_PAGE,
                                           })
 
+
+        print("docs_by_chunk", len(docs_by_chunk))
+        print("docs_by_chunk990", len(docs_by_chunk990))
+        print("docs_by_page", len(docs_by_page))
+
         index_name = f"{_constants.ES_INDEX_ACTIVE_GLOBAL_PREFIX}{voDocInsert.index_name}"
 
         ids = []
+        docs = docs_by_chunk + docs_by_chunk990 + docs_by_page
 
         if not voDocInsert.is_testrun:
             
             document_header_candidates = []
-            if ("document_remarks" in docs_by_page[0].metadata and docs_by_page[0].metadata["document_remarks"] is not None):
-                document_header_candidates.append(docs_by_page[0].metadata["document_remarks"])
-            if ("document_title" in docs_by_page[0].metadata and docs_by_page[0].metadata["document_title"] is not None):
-                document_header_candidates.append(docs_by_page[0].metadata["document_title"])
-            if ("document_summary" in docs_by_page[0].metadata and docs_by_page[0].metadata["document_summary"] is not None):
-                document_header_candidates.append(docs_by_page[0].metadata["document_summary"])
+            if ("document_remarks" in docs[0].metadata and docs[0].metadata["document_remarks"] is not None):
+                document_header_candidates.append(docs[0].metadata["document_remarks"])
+            if ("document_title" in docs[0].metadata and docs[0].metadata["document_title"] is not None):
+                document_header_candidates.append(docs[0].metadata["document_title"])
+            if ("document_summary" in docs[0].metadata and docs[0].metadata["document_summary"] is not None):
+                document_header_candidates.append(docs[0].metadata["document_summary"])
 
             document_header = "\n".join(document_header_candidates)
             document_header_vector = embedding.embed_query(document_header)
             
-            docs = docs_by_chunk + docs_by_chunk990 + docs_by_page
-
-            for doc in docs:
-                print(f"doc_insert_text_data_strat_2 -> `{index_name}`")
+            for index, doc in enumerate(docs):
+                print(f"doc_insert_text_data_strat_2 - {index}/{len(docs)} -> `{index_name}`", end="\r")
 
                 page_content = f"{doc.page_content}"
                 page_content_vector = embedding.embed_query(page_content)
-                
-                print(f"doc_insert_text_data_strat_2 -> `{index_name}` document header + page_content_vector")
                 
                 page_content_w_header = f"{document_header}\n\n\n{doc.page_content}"
                 page_content_w_header_vector = embedding.embed_query(page_content_w_header)
@@ -144,7 +146,7 @@ def doc_insert_text_data_strat_2(
                 )
                 ids.append(objApiResponse["_id"])
 
-        return docs, ids
+        return docs, ids, index_name
     
     except Exception as e:
         print(e)

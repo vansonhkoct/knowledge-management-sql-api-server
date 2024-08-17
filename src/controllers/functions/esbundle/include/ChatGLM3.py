@@ -25,14 +25,14 @@ from transformers import (
 ModelType = Union[PreTrainedModel]
 TokenizerType = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
 
-DEFAULT_MODEL_PATH = 'THUDM/glm-4-9b-chat'
-DEFAULT_TOKENIZER_PATH = 'THUDM/glm-4-9b-chat'
+DEFAULT_MODEL_PATH = 'THUDM/chatglm3-6b'
+DEFAULT_TOKENIZER_PATH = 'THUDM/chatglm3-6b'
 
 _global_model: ModelType = None
 _global_tokenizer: TokenizerType = None
 
 
-class ChatGLM4AnswerResult:
+class ChatGLM3AnswerResult:
     history: List[List[str]] = []
     new_token: str = None
     
@@ -41,10 +41,10 @@ class ChatGLM4AnswerResult:
     
 
 
-class ChatGLM4():
+class ChatGLM3():
     model_path = DEFAULT_MODEL_PATH
     model_gpu = False
-    answer_result = ChatGLM4AnswerResult()
+    answer_result = ChatGLM3AnswerResult()
     
     def __init__(self, llm_model = DEFAULT_MODEL_PATH, llm_model_uses_gpu = False):
         super().__init__()
@@ -95,7 +95,7 @@ class ChatGLM4():
       prompt,
       history: List[List[str]] = [],
       streaming: bool = True,
-      system_prompt = "你是一個學校教職員，負責閱讀並分析香港教育局/教育統籌局的每年推出的通告或其他工作文件。", 
+      system_prompt = "你是一個學校系統教職員，你的母語為中文，負責閱讀並分析來自系統中的香港教育局/教育統籌局的每年推出的通告或其他校務工作文件。", 
       max_length = 2500, 
       top_p = 0.92, 
       top_k = 3,
@@ -141,14 +141,14 @@ class ChatGLM4():
             "repetition_penalty": repetition_penalty,
             "temperature": temperature,
             "stopping_criteria": StoppingCriteriaList([stop]),
-            "eos_token_id": model.config.eos_token_id,
         }
 
-        print("ChatGLM4 -> generate_kwargs", generate_kwargs)
+        print("ChatGLM3 -> generate_kwargs", generate_kwargs)
 
         thread = Thread(target=model.generate, kwargs=generate_kwargs)
         thread.start()
         for new_token in streamer:
+            print("N", new_token, converter)
             _new_token = new_token is not None and (
                 converter.convert(new_token) if converter is not None else new_token
             )
@@ -159,7 +159,7 @@ class ChatGLM4():
             if _new_token:
                 history[-1][1] += _new_token
 
-            answer_result = ChatGLM4AnswerResult()
+            answer_result = ChatGLM3AnswerResult()
             answer_result.history = history
             answer_result.new_token = _new_token
             yield answer_result
@@ -168,7 +168,7 @@ class ChatGLM4():
 
 class StopOnTokens(StoppingCriteria):
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
-        stop_ids = _global_model.config.eos_token_id
+        stop_ids = [0, 2]
         for stop_id in stop_ids:
             if input_ids[0][-1] == stop_id:
                 return True

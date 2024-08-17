@@ -1,5 +1,6 @@
 
 from .ChatLLM import ChatLLM, ChatLLMAnswerResult
+from .ChatGLM3 import ChatGLM3, ChatGLM3AnswerResult
 from .ChatGLM4 import ChatGLM4, ChatGLM4AnswerResult
 from .ChatLLMDao.LLMVo import LLMVoAskQuestion
 from typing import Union
@@ -10,8 +11,8 @@ import pkg_resources
 converter = opencc.OpenCC('s2t.json')
 
 
-ChatModelInterface = Union[ChatLLM, ChatGLM4]
-ChatModelAnswerResult = Union[ChatLLMAnswerResult, ChatGLM4AnswerResult]
+ChatModelInterface = Union[ChatLLM, ChatGLM3, ChatGLM4]
+ChatModelAnswerResult = Union[ChatLLMAnswerResult, ChatGLM3AnswerResult, ChatGLM4AnswerResult]
 
 class ChatLLMController:
 
@@ -37,6 +38,8 @@ class ChatLLMController:
     ):
         if self._get_python_package_version("transformers") == "4.44.0":
             llm_model_name = "chatglm4"
+        elif self._get_python_package_version("transformers") == "4.40.0":
+            llm_model_name = "chatglm3"
         else:
             llm_model_name = "chatglm2"
             
@@ -57,8 +60,13 @@ class ChatLLMController:
                 chatglm2.load_llm()
                 self.llm_collections[llm_model_name] = chatglm2
 
+            if llm_model_name == "chatglm3":
+                chatglm3 = ChatGLM3(llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
+                chatglm3.load_llm()
+                self.llm_collections[llm_model_name] = chatglm3
+
             elif llm_model_name == "chatglm4":
-                chatglm4 = ChatGLM4(llm_model = ConfigParams.llm_model, llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
+                chatglm4 = ChatGLM4(llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
                 chatglm4.load_llm()
                 self.llm_collections[llm_model_name] = chatglm4
         
@@ -147,6 +155,7 @@ class ChatLLMController:
                 top_k = llm_top_k,
                 repetition_penalty = llm_repetition_penalty,
                 temperature = llm_temperature,
+                converter = converter,
                 ):
                 yield answer_result
         except Exception as e:

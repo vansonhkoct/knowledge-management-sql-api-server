@@ -79,14 +79,25 @@ def generate_multi_vector_knn(
             query_strings = {}
             
             if voDocSearch.is_search_strategy_2():
-            
-                query_strings["page_content_vector"] = voDocSearch.question
-                query_strings["document_header_vector"] = voDocSearch.question
-                voDocSearch.knn_boosts["page_content_vector"] = 0.941
-                voDocSearch.knn_boosts["document_header_vector"] = 0.069
-
-            else:
                 
+                if voDocSearch.get_search_portion_type() == _constants.DATA_PORTION_TYPE_PAGE:
+                    query_strings["page_content_vector"] = voDocSearch.question
+                    query_strings["document_header_vector"] = voDocSearch.question
+                    voDocSearch.knn_boosts["page_content_vector"] = 0.92
+                    voDocSearch.knn_boosts["document_header_vector"] = 0.08
+
+                if voDocSearch.get_search_portion_type() == _constants.DATA_PORTION_TYPE_CHUNK:
+                    query_strings["page_content_vector"] = voDocSearch.question
+                    query_strings["document_header_vector"] = voDocSearch.question
+                    voDocSearch.knn_boosts["page_content_vector"] = 0.95
+                    voDocSearch.knn_boosts["document_header_vector"] = 0.05
+
+                if voDocSearch.get_search_portion_type() == _constants.DATA_PORTION_TYPE_CHUNK990:
+                    query_strings["page_content_vector"] = voDocSearch.question
+                    query_strings["document_header_vector"] = voDocSearch.question
+                    voDocSearch.knn_boosts["page_content_vector"] = 0.935
+                    voDocSearch.knn_boosts["document_header_vector"] = 0.065
+            else:
                 query_strings["vector"] = voDocSearch.question
                 voDocSearch.knn_boosts["vector"] = 1.0
         
@@ -163,6 +174,14 @@ def generate_multi_vector_knn(
             }
         })
     
+    if (voDocSearch.document_file_ids is not None and len(voDocSearch.document_file_ids) > 0):
+        qbool["must"] = [] if "must" not in qbool else qbool["must"]
+        qbool["must"].append({
+            "terms": {
+                "metadata.document_file_id.keyword": voDocSearch.document_file_ids
+            }
+        })
+
     if (voDocSearch.should_match_document_tags > 0):
         qbool["should"] = [] if "should" not in qbool else qbool["should"]
         qbool["should"].append({

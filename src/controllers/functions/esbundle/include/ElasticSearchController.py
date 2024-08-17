@@ -8,6 +8,10 @@ from .ElasticSearchDao import DocInsert, DocUpdate, DocSearch, DocMigrate, DocGe
 from .ElasticSearchDao.ESVo import ESVoDocSearch, ESVoDocInsert
 from .ElasticSearchDao import _constants
 
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 es_logger = logger
 es_logger.setLevel(logging.DEBUG)
 

@@ -218,13 +218,14 @@ async def __reparse_file_as_docs(
   if not is_testrun and item is not None and item.id is not None:
     print(f"\n==== PART 4 === attempting remove from {item.party_id}: {old_doc_ids_strat_2}")
           
-    for id in old_doc_ids_strat_2:
-      print(f"\n==== PART 4 === attempting remove from {item.party_id}: {id}")
+    for index, id in enumerate(old_doc_ids_strat_2):
+      print(f"==== PART 4 === removing {index}/{len(old_doc_ids_strat_2)} - {id}", end = "\r")
       await ESChatLLM.bot_es_delete_document_by_id(
         index_name=str(item.party_id),
         id=id,
       )
 
+  print("\n==== OK ====", index_name, "\n")
 
   return docs, new_ids, index_name
 
@@ -288,16 +289,20 @@ async def test_reparse_all_files_as_docs(
   request: Request,
 ):
   data = await request.json()
-  party_id = data["party_id"]
+  party_id = data["party_id"] if "party_id" in data else None
   is_testrun = data["is_testrun"]
 
+  q = {
+    "party_id__isnull": False,
+    "is_deleted": False,
+  }
+  
+  if (party_id is not None):
+    q["party_id"] = party_id
 
   items = (
     await File
-      .filter(Q(**{
-        "party_id": party_id,
-        "is_deleted": False,
-      }))
+      .filter(Q(**q))
   )
 
 
@@ -396,17 +401,29 @@ async def test_get_es_doc_ids_by_document_file_id(
     document_file_id=data["document_file_id"],
     data_strategy=data["data_strategy"] if "data_strategy" in data else "2",
   )
+  
+  docs = []
+  for id in result:
+    doc = await ESChatLLM.bot_es_get_document_by_id(
+      index_name=data["index_name"],
+      id=id,
+    )
+    doc["document_header_vector"] = []
+    doc["page_content_vector"] = []
+    doc["page_content_w_header_vector"] = []
+    docs.append(doc)
 
   return {
     "success": True,
     "message": TAG_C001,
     "data": result,
+    "esdocs": docs,
   }
   
   
   
 @router.post("/file_estest/get_es_doc_by_id")
-async def test_get_es_doc_ids_by_document_file_id(
+async def test_get_es_doc_by_id(
   request: Request,
 ):
   data = await request.json()
@@ -488,6 +505,7 @@ async def test_bot_llm_ask_question(
       query_vectors = data["query_vectors"] if "query_vectors" in data else None,
       knn_boosts = data["knn_boosts"] if "knn_boosts" in data else None,
       document_category = data["document_category"],
+      document_file_ids = data["document_file_ids"] if "document_file_ids" in data else [],
       k = data["k"] if "k" in data else 10,
       num_candidates = data["num_candidates"] if "num_candidates" in data else 100,
       data_strategy = data["data_strategy"] if "data_strategy" in data else None,
@@ -563,9 +581,10 @@ async def test_bot_llm_ask_question(
     
 
     prompt = "".join([
-      "已知信息：\n",
+      "以下是系統提供的資料段落：\n",
       "".join(aggregated_context),
-      "\n\n根據上述已知信息，簡潔和專業的來回答用户的問題。如果無法從中得到答案，請説 “根據已知信息無法回答該問題” 或 “沒有提供足夠的相關信息”，不允許在答案中添加其他任何成分，答案請使用中文。 問題是：",
+      # "\n\n根據上述已知信息，簡潔和專業的來回答用户的問題。如果無法從中得到答案，請説 “根據已知信息無法回答該問題” 或 “沒有提供足夠的相關信息”，不允許在答案中添加其他任何成分，答案請使用中文。 以下是問題： 根據已知信息，",
+      "\n\n===================\n\n請閱讀上述文件段落，單純依靠系統所提供的信息 (不必考慮信息以外的知識)，並使用中文（不要使用其他語言）告訴我：",
       data["question"],
     ])
     
@@ -607,6 +626,9 @@ async def test_bot_llm_ask_question(
       "success": True,
       "message": TAG_C001,
       "data": llm_answer_result,
+      "suggested_token": suggested_token,
+      "prompt_token": prompt_token,
+      "input_llm_max_token": input_llm_max_token,
       "prompt": prompt,
       "group_filtered_es_result": group_filtered_es_result,
       "filtered_es_result": filtered_es_result,

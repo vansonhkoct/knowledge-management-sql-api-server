@@ -8,6 +8,7 @@ class ESVoDocSearch:
     query_vectors: dict | None
     knn_boosts: dict | None = None 
     document_category: str | None = None 
+    document_file_ids: list[str] = []
     k: int = 10
     num_candidates: int = 100
     data_strategy: str = None
@@ -26,6 +27,7 @@ class ESVoDocSearch:
         query_vectors: dict | None,
         knn_boosts: dict | None = None,
         document_category: str | None = None,
+        document_file_ids: list[str] = [],
         k: int = 10,
         num_candidates: int = 100,
         data_strategy: str = None,
@@ -42,6 +44,7 @@ class ESVoDocSearch:
             self.query_vectors = query_vectors
             self.knn_boosts = knn_boosts
             self.document_category = document_category
+            self.document_file_ids = document_file_ids
             self.k = k
             self.num_candidates = num_candidates
             self.data_strategy = data_strategy
