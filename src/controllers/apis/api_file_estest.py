@@ -563,6 +563,7 @@ async def test_bot_llm_ask_question(
 
     vo_llm = LLMVoAskQuestion(
       prompt = prompt,
+      llm_model_name = data["llm_model_name"] if "llm_model_name" in data else None,
       llm_max_token = llm_max_token,
       llm_temperature = data["llm_temperature"] if "llm_temperature" in data else 0.03,
       llm_top_p = data["llm_top_p"] if "llm_top_p" in data else 0.92,

@@ -14,39 +14,49 @@ ChatModelAnswerResult = Union[ChatLLMAnswerResult, ChatGLM4AnswerResult]
 
 class ChatLLMController:
 
-    llm: ChatModelInterface = None
+    llm_collections: dict[str, ChatModelInterface] = None
 
     active_llm_generators_vs_api_uids = {}
     history = []
 
     def __init__(self):
-        self.llm = ChatLLM(llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
-        # self.llm = ChatGLM4(llm_model = ConfigParams.llm_model, llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
-        self.llm.load_llm()
+        chatglm2 = ChatLLM(llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
+        chatglm2.load_llm()
 
+        chatglm4 = ChatGLM4(llm_model = ConfigParams.llm_model, llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
+        chatglm4.load_llm()
+
+        self.llm_collections = {
+            "chatglm2": chatglm2,
+            "chatglm4": chatglm4,
+        }
 
     def bot_ask_question(
         self, 
         voAskQuestion: LLMVoAskQuestion,
     ):
         timestamp = str(time.time_ns())
+        
+        llm_model_name = voAskQuestion.llm_model_name or "chatglm2"
+        llm_model = self.llm_collections[llm_model_name]
 
         answer_gen = self._llm_generate_answer(
-            prompt=voAskQuestion.prompt,
-            history=voAskQuestion.history,
-            llm_max_token=voAskQuestion.llm_max_token,
-            llm_temperature=voAskQuestion.llm_temperature,
-            llm_top_p=voAskQuestion.llm_top_p,
-            llm_top_k=voAskQuestion.llm_top_k,
-            llm_repetition_penalty=voAskQuestion.llm_repetition_penalty,
+            prompt = voAskQuestion.prompt,
+            history = voAskQuestion.history,
+            llm_model = llm_model,
+            llm_max_token = voAskQuestion.llm_max_token,
+            llm_temperature = voAskQuestion.llm_temperature,
+            llm_top_p = voAskQuestion.llm_top_p,
+            llm_top_k = voAskQuestion.llm_top_k,
+            llm_repetition_penalty = voAskQuestion.llm_repetition_penalty,
         )
         
         answer_result = self._llm_answering_loop(
             question = voAskQuestion.prompt,
             answer_generator = answer_gen,
             timestamp = timestamp,
-            api_uid=voAskQuestion.api_uid,
-            emit_to_uid=voAskQuestion.emit_to_uid,
+            api_uid = voAskQuestion.api_uid,
+            emit_to_uid = voAskQuestion.emit_to_uid,
         )
 
         answer_result_dict = {}
@@ -86,6 +96,7 @@ class ChatLLMController:
         self, 
         prompt, 
         history,
+        llm_model: ChatModelInterface,
         llm_max_token,
         llm_temperature,
         llm_top_p,
@@ -93,7 +104,7 @@ class ChatLLMController:
         llm_repetition_penalty,
         ):
         try:
-            for answer_result in self.llm.generator_answer(
+            for answer_result in llm_model.generator_answer(
                 prompt=prompt, 
                 history=history, 
                 streaming=True,

@@ -4,6 +4,7 @@ from typing import List
 class LLMVoAskQuestion:
     prompt: str
     history: List[List[str]] = []
+    llm_model_name=None,
     llm_max_token=8192
     llm_temperature=0.01
     llm_top_p=0.8
@@ -17,6 +18,7 @@ class LLMVoAskQuestion:
         self,
         prompt: str,
         history: List[List[str]] = [],
+        llm_model_name=None,
         llm_max_token=8192,
         llm_temperature=0.01,
         llm_top_p=0.8,
@@ -28,6 +30,7 @@ class LLMVoAskQuestion:
         ):
         self.prompt = prompt
         self.history = history
+        self.llm_model_name = llm_model_name
         self.llm_max_token = llm_max_token
         self.llm_temperature = llm_temperature
         self.llm_top_p = llm_top_p
