@@ -208,6 +208,11 @@ def main():
     else:
         print("Detectron2 is not installed")
 
+    if dependency_exists("transformers"):
+        print("transformers version: ", get_python_package_version("transformers"))
+    else:
+        print("transformers is not installed")
+
     if is_python_package_installed("paddlepaddle") or is_python_package_installed(
         "paddleocr",
     ):

@@ -52,3 +52,4 @@ transformers_stream_generator==0.0.5
 gradio==4.41.0
 pymupdf4llm==0.0.10
 pillow_heif==0.18.0
+setuptools==72.2.0
