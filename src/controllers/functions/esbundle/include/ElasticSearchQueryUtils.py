@@ -237,7 +237,7 @@ def generate_multi_vector_knn(
     #     "size": voDocSearch.k,
     # }
     
-    ConfigParams.es_dbg("[ElasticSearchQueryUtils] resulting query dict:", query)
+    ConfigParams.es_verb("[ElasticSearchQueryUtils] resulting query dict:", query)
     
     
     possible_max_score = 0

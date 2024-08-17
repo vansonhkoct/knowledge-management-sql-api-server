@@ -4,6 +4,7 @@ from typing import Optional, List
 import torch
 from transformers import AutoModel, AutoTokenizer, AutoModelForCausalLM
 from langchain.llms.base import LLM
+import opencc
 
 
 class ChatLLMAnswerResult:
@@ -87,15 +88,20 @@ class ChatLLM(LLM):
                         top_k = 1,
                         repetition_penalty = 1.0,
                         temperature = 0.01,
+                        converter: opencc.OpenCC = None,
                         ):
 
         if streaming:
             history += [[]]
+            _history = history[-self.history_len:-1] if self.history_len > 1 else []
+            
+            print("ChatLLM -> streaming, args", "max_length", max_length, "top_p", top_p, "temperature", temperature, "history", history, "_history", _history)
+
             if self.model_type == "InternLM":
                 response = self.model.stream_chat(
                     self.tokenizer,
                     prompt,
-                    history=history[-self.history_len:-1] if self.history_len > 1 else [],
+                    history=_history,
                     max_length=max_length,
                     temperature=temperature,
                     top_p=top_p
@@ -104,17 +110,21 @@ class ChatLLM(LLM):
                 response = self.model.stream_chat(
                     self.tokenizer,
                     prompt,
-                    history=history[-self.history_len:-1] if self.history_len > 1 else [],
+                    history=_history,
                     max_length=max_length,
                     temperature=temperature,
                     top_p=top_p
                 )
             for inum, (stream_resp, _) in enumerate(response):
                 # self.checkPoint.clear_torch_cache()
-                history[-1] = [prompt, stream_resp]
+                _stream_resp = stream_resp is not None and (
+                    converter(stream_resp) if converter is not None else stream_resp
+                )
+
+                history[-1] = [prompt, _stream_resp]
                 answer_result = ChatLLMAnswerResult()
                 answer_result.history = history
-                answer_result._llm_output = {"answer": stream_resp}
+                answer_result._llm_output = {"answer": _stream_resp}
                 yield answer_result
         else:
             response, _ = self.model.chat(

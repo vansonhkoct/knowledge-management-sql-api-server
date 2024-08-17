@@ -5,8 +5,9 @@ from fastapi import HTTPException
 from typing import Annotated
 from tortoise.expressions import Q
 import asyncio
-
+from datetime import datetime
 import json
+import math
 
 import nltk
 
@@ -446,26 +447,40 @@ async def test_bot_es_doc_migrate_update_all_data_without_data_strategy_to_becom
 is_busy: bool = False
 
 
+
+
 @router.post("/file_estest/test_llm_ask_question")
 async def test_bot_llm_ask_question(
   request: Request,
 ):
+  data = await request.json()
+    
   global is_busy
-  
+
+  retry_count = 0
+  max_retries = (data["max_retries"] if "max_retries" in data else 10) or 10
+  retry_delay = 2
+
+  while is_busy and retry_count < max_retries:
+      print(f" -- B({retry_count+1}/{max_retries}) -- ", end = "", flush=True)
+      await asyncio.sleep(retry_delay)
+      retry_count += 1
+
   if is_busy:
+    print(f"\n\nServer busy! Someone is forfeiting test_bot_llm_ask_question -- B({retry_count+1}/{max_retries}) -- ")
     raise HTTPException(
       status_code=400,
       detail={
         "message": TAG_E002,
-        "error": "Server busy",
+        "error": f"Server busy (Attempt {retry_count+1}/{max_retries})",
       }
     )
 
+
   is_busy = True
 
+
   try:
-    data = await request.json()
-    
     vo_es = ESVoDocSearch(
       index_name = data["index_name"],
       question = data["question"] if "question" in data else None,
@@ -510,7 +525,6 @@ async def test_bot_llm_ask_question(
 
     aggregated_context = []
   
-    print(it)
     for key_file_id in group_filtered_es_result.keys():
       document_header = f"""
 
@@ -556,13 +570,20 @@ async def test_bot_llm_ask_question(
     ])
     
     suggested_token = 8192
-    prompt_token = len(prompt) + 50
+    prompt_token = math.ceil( len(prompt) * 1.6 )
     input_llm_max_token = data["llm_max_token"] if "llm_max_token" in data else 0
+    
+    print({
+      "suggested_token": suggested_token,
+      "prompt_token": prompt_token,
+      "input_llm_max_token": input_llm_max_token,
+    })
     
     llm_max_token = max(input_llm_max_token, suggested_token, prompt_token)
 
     vo_llm = LLMVoAskQuestion(
       prompt = prompt,
+      history = [],
       llm_model_name = data["llm_model_name"] if "llm_model_name" in data else None,
       llm_max_token = llm_max_token,
       llm_temperature = data["llm_temperature"] if "llm_temperature" in data else 0.03,
@@ -601,14 +622,15 @@ async def test_bot_llm_ask_question(
         "message": TAG_E001,
         "error": str(e),
         "stacktrace": stacktrace,
+        "suggested_token": suggested_token,
+        "prompt_token": prompt_token,
+        "input_llm_max_token": input_llm_max_token,
       }
     )
 
 
 
 def _do_emit_to_uid(topic, dict, uid):
-  print("_do_emit_to_uid", topic, dict, uid)
-  
   async def fn():
     await wsConnectionManager.send_personal_message(
       message=json.dumps({

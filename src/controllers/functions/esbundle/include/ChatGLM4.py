@@ -8,6 +8,7 @@ allowing users to interact with the model through a chat-like interface.
 from pathlib import Path
 from threading import Thread
 from typing import Union, List, Optional
+import opencc
 
 import torch
 from transformers import (
@@ -38,7 +39,6 @@ class ChatGLM4AnswerResult:
     def llm_output(self):
       return {"answer": self.history[-1][1]}
     
-
 
 
 class ChatGLM4():
@@ -101,40 +101,10 @@ class ChatGLM4():
       top_k = 3,
       repetition_penalty = 1.2,
       temperature = 0.01,
+      converter: opencc.OpenCC = None,
       ):
 
-      history.append([prompt, ""])
-      
-      response_generator = self.predict(
-        user_history = history,
-        system_prompt = system_prompt,
-        max_length = max_length,
-        top_p = top_p,
-        top_k = top_k,
-        repetition_penalty = repetition_penalty,
-        temperature = temperature,
-      )
-      
-      for bundle in response_generator:
-          print("B", bundle["new_token"])
-          answer_result = ChatGLM4AnswerResult()
-          answer_result.history = bundle["user_history"]
-          answer_result.new_token = bundle["new_token"]
-          yield answer_result
-
-
-
-    def predict(
-      self, 
-      user_history, 
-      system_prompt = "你是一個學校教職員，負責閱讀並分析香港教育局/教育統籌局的每年推出的通告或其他工作文件。", 
-      max_length = 2500, 
-      top_p = 0.8, 
-      top_k = 1,
-      repetition_penalty = 1.2,
-      temperature = 0.01):
-      
-        print(user_history)
+        history.append([prompt, ""])
       
         self.load_llm()
       
@@ -145,10 +115,10 @@ class ChatGLM4():
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
-        for idx, (user_msg, model_msg) in enumerate(user_history):
+        for idx, (user_msg, model_msg) in enumerate(history):
             # if prompt and idx == 0:
             #     continue
-            if idx == len(user_history) - 1 and not model_msg:
+            if idx == len(history) - 1 and not model_msg:
                 messages.append({"role": "user", "content": user_msg})
                 break
             if user_msg:
@@ -173,16 +143,26 @@ class ChatGLM4():
             "stopping_criteria": StoppingCriteriaList([stop]),
             "eos_token_id": model.config.eos_token_id,
         }
+
+        print("ChatGLM4 -> generate_kwargs", generate_kwargs)
+
         thread = Thread(target=model.generate, kwargs=generate_kwargs)
         thread.start()
         for new_token in streamer:
-            if new_token:
-                user_history[-1][1] += new_token
-            print(new_token)
-            yield {
-              "user_history": user_history,
-              "new_token": new_token,
-            }
+            _new_token = new_token is not None and (
+                converter.convert(new_token) if converter is not None else new_token
+            )
+            
+            if (converter is not None):
+                print("convert", converter, new_token, _new_token)
+            
+            if _new_token:
+                history[-1][1] += _new_token
+
+            answer_result = ChatGLM4AnswerResult()
+            answer_result.history = history
+            answer_result.new_token = _new_token
+            yield answer_result
 
 
 

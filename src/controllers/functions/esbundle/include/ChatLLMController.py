@@ -6,6 +6,7 @@ from typing import Union
 import time
 import opencc
 from . import ConfigParams
+import pkg_resources
 converter = opencc.OpenCC('s2t.json')
 
 
@@ -17,10 +18,29 @@ class ChatLLMController:
     llm_collections: dict[str, ChatModelInterface] = {}
 
     active_llm_generators_vs_api_uids = {}
-    history = []
 
     def __init__(self):
         pass
+
+
+
+    def _get_python_package_version(self, package_name):
+        try:
+            return pkg_resources.get_distribution(package_name).version
+        except pkg_resources.DistributionNotFound:
+            return None
+
+
+    def _get_llm_model_name(
+        self,
+        llm_model_name: str = "chatglm2",
+    ):
+        if self._get_python_package_version("transformers") == "4.44.0":
+            llm_model_name = "chatglm4"
+        else:
+            llm_model_name = "chatglm2"
+            
+        return llm_model_name
 
 
 
@@ -28,6 +48,9 @@ class ChatLLMController:
         self,
         llm_model_name: str = "chatglm2",
     ):
+        # TODO: now have to distinguish transformers version
+        llm_model_name = self._get_llm_model_name(llm_model_name=llm_model_name)
+
         if llm_model_name not in self.llm_collections:
             if llm_model_name == "chatglm2":
                 chatglm2 = ChatLLM(llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
@@ -49,12 +72,12 @@ class ChatLLMController:
     ):
         timestamp = str(time.time_ns())
         
-        llm_model = self._get_llm_model_by_name(voAskQuestion.llm_model_name)
+        llm_model_name = self._get_llm_model_name(voAskQuestion.llm_model_name)
 
         answer_gen = self._llm_generate_answer(
             prompt = voAskQuestion.prompt,
             history = voAskQuestion.history,
-            llm_model = llm_model,
+            llm_model_name = llm_model_name,
             llm_max_token = voAskQuestion.llm_max_token,
             llm_temperature = voAskQuestion.llm_temperature,
             llm_top_p = voAskQuestion.llm_top_p,
@@ -107,7 +130,7 @@ class ChatLLMController:
         self, 
         prompt, 
         history,
-        llm_model: ChatModelInterface,
+        llm_model_name: str,
         llm_max_token,
         llm_temperature,
         llm_top_p,
@@ -115,7 +138,7 @@ class ChatLLMController:
         llm_repetition_penalty,
         ):
         try:
-            for answer_result in llm_model.generator_answer(
+            for answer_result in self._get_llm_model_by_name(llm_model_name=llm_model_name).generator_answer(
                 prompt=prompt, 
                 history=history, 
                 streaming=True,
@@ -126,6 +149,10 @@ class ChatLLMController:
                 temperature = llm_temperature,
                 ):
                 yield answer_result
+        except Exception as e:
+            del self.llm_collections[llm_model_name]
+            ConfigParams.llm_dbg("bot_ask_question", f"Cleaning LLM for Exception! {e}")
+            raise e
         finally:
             ConfigParams.llm_dbg("bot_ask_question", "End of _llm_generate_answer")
             pass
@@ -154,7 +181,7 @@ class ChatLLMController:
                 
                 history[-1][0] = question
         
-                ConfigParams.llm_dbg("bot_ask_question", f"llm_output: {answer_result.llm_output()}")
+                ConfigParams.llm_verbose("bot_ask_question", f"llm_output: {answer_result.llm_output()}")
 
                 if api_uid is not None:
 
