@@ -1,25 +1,26 @@
 
 from src.controllers.functions._generic.fileutils import UploadFileRecord, upload_file_write_to_upload_folder
+from src.controllers.functions.esbundle.include.ElasticSearchDao.ESVo import ESVoDocInsert
 from src.models.master import File
 
 from typing import BinaryIO
 
 
 ESChatLLM = None
-extract_pdf_file_to_text = None
+async_extract_pdf_file_to_text = None
 
 
 def bootstrapImportESBundle():
   global ESChatLLM
   global extract_pdf_file_to_text
   
-  if (ESChatLLM == None):
+  if (ESChatLLM is None):
     import controllers.functions.esbundle.es_chatllm as _ESChatLLM
     ESChatLLM = _ESChatLLM
     
-  if (extract_pdf_file_to_text == None):
-    from controllers.functions.esbundle.es_chatllm import extract_pdf_file_to_text as _extract_pdf_file_to_text
-    extract_pdf_file_to_text = _extract_pdf_file_to_text
+  if (extract_pdf_file_to_text is None):
+    from controllers.functions.esbundle.es_chatllm import async_extract_pdf_file_to_text as _async_extract_pdf_file_to_text
+    async_extract_pdf_file_to_text = _async_extract_pdf_file_to_text
 
 
 
@@ -54,28 +55,34 @@ async def on_upload_file(
 ):
   bootstrapImportESBundle()
   
-  text_data, text = extract_pdf_file_to_text(
+  text_data, text = await async_extract_pdf_file_to_text(
     filename=filename,
     file=file,
     meta_data_mapping = {
         "document_file_id": str(file_id) if file_id != None else "",
         "document_category": str(category_id) if category_id != None else "",
-    }
+    },
+    accept_non_standard_chars = False,
   )
 
-  docs, ids, index_name = await ESChatLLM.bot_es_add_document(
-    index_name=str(party_id),
-    text_data=text_data,
-    text=text,
-    extra_metadata={
+  vo = ESVoDocInsert(
+    index_name = str(party_id),
+    text = text,
+    extra_metadata = {
         "document_tags": document_tags,
-        "document_title": str(document_title) if document_title != None else None,
-        "document_summary": str(document_summary) if document_summary != None else None,
-        "document_remarks": str(document_remarks) if document_remarks != None else None,
-    }
+        "document_title": str(document_title) if document_title is not None else None,
+        "document_summary": str(document_summary) if document_summary is not None else None,
+        "document_remarks": str(document_remarks) if document_remarks is not None else None,
+    },
+    is_testrun = False,
   )
 
-  return docs, ids, index_name
+  docs, new_ids, index_name = await ESChatLLM.bot_es_add_document(
+    vo=vo,
+  )
+
+  return docs, new_ids, index_name
+
 
 
 async def on_move_file(

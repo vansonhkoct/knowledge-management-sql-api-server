@@ -16,6 +16,7 @@ from src.controllers.functions._generic.fileutils import UploadFileRecord
 from src.controllers.functions._generic.fileutils import upload_file_write_to_upload_folder
 from src.controllers.functions._generic.fileutils import remove_file_from_upload_folder
 from src.controllers.functions._generic.fileutils import load_uploaded_file
+from src.controllers.functions.log.log import add_log_apillm
 from src.controllers.functions.file.file import bootstrapImportESBundle
 from src.controllers.functions.file.file import create_entry_file
 from src.controllers.functions.file.file import on_move_file
@@ -636,6 +637,19 @@ async def test_bot_llm_ask_question(
     is_busy = False
 
 
+    add_log_apillm(
+      question = vo_es.question,
+      index_name = vo_es.index_name,
+      prompt = prompt,
+      llm_answer_result = llm_answer_result,
+      suggested_token = suggested_token,
+      prompt_token = prompt_token,
+      input_llm_max_token = input_llm_max_token,
+      es_result_ids = [{
+        "file_id": it["file_id"],
+        "page": it["metadata"]["page"],
+      } for it in es_result],
+    )
 
 
     return {
@@ -647,7 +661,7 @@ async def test_bot_llm_ask_question(
       "input_llm_max_token": input_llm_max_token,
       "prompt": prompt,
       "group_filtered_es_result_count": len(group_filtered_es_result),
-      "filtered_es_result_count": len(filtered_es_result_count),
+      "filtered_es_result_count": len(filtered_es_result),
       "es_result_count": len(es_result),
       "group_filtered_es_result": group_filtered_es_result,
       "filtered_es_result": filtered_es_result,

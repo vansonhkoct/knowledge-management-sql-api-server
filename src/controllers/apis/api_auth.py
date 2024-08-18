@@ -7,6 +7,8 @@ from tortoise.expressions import Q
 from src.controllers.functions.user.userauth_email import obtain_user_by_user_credential
 from src.controllers.functions.user.userauth_email import obtain_user_by_user_credential_and_party_id
 
+from src.controllers.functions.log.log import add_log_user_login
+
 from src.controllers.functions.user.userauth_session import obtain_user_by_user_access_token
 from src.controllers.functions.user.userauth_session import create_new_access_token_by_user_refresh_token
 from src.controllers.functions.user.userauth_session import create_new_access_token_and_refresh_token_by_user
@@ -54,6 +56,8 @@ async def auth_login(
     userSession = await create_new_access_token_and_refresh_token_by_user(
       user=user,
     )
+    
+    add_log_user_login(user=user)
   
     return {
       "success": True,

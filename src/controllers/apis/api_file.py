@@ -50,6 +50,7 @@ async def initializeES(
     )
 
 
+
 @router.post("/file/upload")
 async def upload_and_create(
   request: Request,
@@ -58,8 +59,6 @@ async def upload_and_create(
   document_title: Annotated[str, Form()] = None,
   document_summary: Annotated[str, Form()] = None,
   document_remarks: Annotated[str, Form()] = None,
-  debug___party_id: Annotated[str, Form()] = None,
-  debug___category_id: Annotated[str, Form()] = None,
   alias: Annotated[str, Form()] = None,
   # file: UploadFile = File(...),
   file: UploadFile = FastAPIFile(),
@@ -73,41 +72,8 @@ async def upload_and_create(
       alias=alias,
     )
     
-    party_id = debug___party_id if debug___party_id != None else user.party_id
-    
-    
-    if debug___party_id != None:
-      es_doc_ids = []
-    
-      if (document_tags != None):
-        document_tags = [ tag.strip() for tag in document_tags.split(",") ]
-      
-      with open(file_ref.filepath, "rb") as r_file:
-        docs, es_doc_ids, index_name = await on_upload_file(
-          party_id=party_id,
-          filename=file_ref.filename,
-          file_id="___DEBUG___",
-          file=r_file,
-          category_id=debug___category_id,
-          document_tags=document_tags,
-          document_title=document_title,
-          document_summary=document_summary,
-          document_remarks=document_remarks,
-        )
-        
-      return {
-        "success": True,
-        "message": TAG_C001,
-        "data": {
-          "item": "___DEBUG___",
-          "es_doc_ids": es_doc_ids,
-          "index_name": index_name,
-          "docs": docs,
-        },
-      }
-    
-    
-    
+    party_id = user.party_id
+
     item = await create_entry_file(
       uploadFileRecord = file_ref,
       party_id=party_id,
@@ -117,7 +83,7 @@ async def upload_and_create(
     es_doc_ids = []
     
     
-    if (document_tags != None):
+    if (document_tags is not None):
       document_tags = [ tag.strip() for tag in document_tags.split(",") ]
     
     
@@ -135,7 +101,7 @@ async def upload_and_create(
       )
     
     
-    item.es_doc_ids = ",".join(es_doc_ids if es_doc_ids != None else [])
+    item.es_doc_ids = ",".join(es_doc_ids if es_doc_ids is not None else [])
     await item.save()
 
     return {
