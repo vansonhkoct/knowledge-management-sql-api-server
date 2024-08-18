@@ -153,8 +153,8 @@ class ChatGLM4():
                 converter.convert(new_token) if converter is not None else new_token
             )
             
-            if (converter is not None):
-                print("convert", converter, new_token, _new_token)
+            # if (converter is not None):
+            #     print("convert", converter, new_token, _new_token)
             
             if _new_token:
                 history[-1][1] += _new_token

@@ -13,6 +13,7 @@ class ESVoDocSearch:
     num_candidates: int = 100
     data_strategy: str = None
     data_portion_type: str = _constants.DATA_PORTION_TYPE_PAGE
+    data_vector_query_strategy: int = 1
     must_match_document_category: bool = True
     should_match_document_tags: int = 0
     should_match_document_title: int = 0
@@ -32,6 +33,7 @@ class ESVoDocSearch:
         num_candidates: int = 100,
         data_strategy: str = None,
         data_portion_type: str = _constants.DATA_PORTION_TYPE_PAGE,
+        data_vector_query_strategy: int = 1,
         must_match_document_category: bool = True,
         should_match_document_tags: int = 0,
         should_match_document_title: int = 0,
@@ -49,6 +51,7 @@ class ESVoDocSearch:
             self.num_candidates = num_candidates
             self.data_strategy = data_strategy
             self.data_portion_type = data_portion_type
+            self.data_vector_query_strategy = data_vector_query_strategy
             self.must_match_document_category = must_match_document_category
             self.should_match_document_tags = should_match_document_tags
             self.should_match_document_title = should_match_document_title

@@ -1,3 +1,4 @@
+import os
 import traceback
 from fastapi import APIRouter, File as FastAPIFile, UploadFile, Form, Request, Body
 from fastapi import WebSocket, WebSocketDisconnect
@@ -146,11 +147,12 @@ async def __reparse_file_as_docs(
   item: File,
   r_file,
   is_testrun,
+  accept_non_standard_chars: bool = False,
 ):
-  print("\n==== PART 1 ===\n")
+  print("\n\n==== PART 1 ===")
 
   
-  print("\n==== PART 2 ===\n")
+  print("==== PART 2 ===")
   
   _, text = await ESChatLLM.async_extract_pdf_file_to_text(
     filename=item.filename,
@@ -158,10 +160,11 @@ async def __reparse_file_as_docs(
     meta_data_mapping = {
         "document_file_id": str(item.id) if item.id is not None else "",
         "document_category": str(item.category_id) if item.category_id is not None else "",
-    }
+    },
+    accept_non_standard_chars = accept_non_standard_chars or False,
   )
   
-  print("\n==== PART 3 ===\n")
+  print("==== PART 3 ===")
 
   old_doc_ids = await ESChatLLM.bot_es_get_document_es_ids_by_document_file_id(
     index_name=str(item.party_id),
@@ -175,7 +178,7 @@ async def __reparse_file_as_docs(
     data_strategy="2",
   )
 
-  print(f"\n==== PART 3 === obtained old_dic_ids: {old_doc_ids}\n")
+  print(f"==== PART 3 === obtained old_dic_ids: {len(old_doc_ids)} old indices\n")
   
   extra_metadata = {}
   
@@ -192,10 +195,10 @@ async def __reparse_file_as_docs(
         "document_remarks": doc["metadata"]["document_remarks"] if "metadata" in doc and "document_remarks" in doc["metadata"] else None,
     }
     
-  print(f"\n==== PART 3 === extra metadata: {extra_metadata} \n")
+  print(f"==== PART 3 === extra metadata: {extra_metadata} \n")
     
 
-  print(f"\n==== PART 4 === attempting adding into {item.party_id}")
+  print(f"==== PART 4 === attempting adding into {item.party_id}")
   
   vo = ESVoDocInsert(
     index_name = str(item.party_id),
@@ -207,17 +210,16 @@ async def __reparse_file_as_docs(
   docs, new_ids, index_name = await ESChatLLM.bot_es_add_document(
     vo=vo,
   )
-  print(f"\n==== PART 4 === attempting added into {item.party_id}: {new_ids}")
 
   if not is_testrun and item is not None and item.id is not None and new_ids is not None:
-    print(f"\n==== PART 4 === attempt save into es_doc_ids of {item.id}")
+    print(f"==== PART 4 === attempt save into es_doc_ids of {item.id}")
     item.es_doc_ids = ",".join(new_ids)
     await item.save()
-    print(f"\n==== PART 4 === done save into es_doc_ids of {item.id}: {new_ids}")
+    print(f"==== PART 4 === done save into es_doc_ids of {item.id}: {len(new_ids)} indices")
 
   
   if not is_testrun and item is not None and item.id is not None:
-    print(f"\n==== PART 4 === attempting remove from {item.party_id}: {old_doc_ids_strat_2}")
+    print(f"==== PART 4 === attempting remove from {item.party_id}: {len(old_doc_ids_strat_2)} old indices")
           
     for index, id in enumerate(old_doc_ids_strat_2):
       print(f"==== PART 4 === removing {index}/{len(old_doc_ids_strat_2)} - {id}", end = "\r")
@@ -226,7 +228,9 @@ async def __reparse_file_as_docs(
         id=id,
       )
 
-  print("\n==== OK ====", index_name, "\n")
+    print(f"==== PART 4 === done save into es_doc_ids of {item.id}: {len(new_ids)} indices - Done!")
+
+  print("==== OK ====\n", index_name, "\n")
 
   return docs, new_ids, index_name
 
@@ -240,7 +244,7 @@ async def test_reparse_file_as_docs(
   data = await request.json()
   id = data["id"]
   is_testrun = data["is_testrun"]
-
+  accept_non_standard_chars = data["accept_non_standard_chars"] if "accept_non_standard_chars" in data else False
 
   item = (
     await File
@@ -264,6 +268,7 @@ async def test_reparse_file_as_docs(
         item = item,
         r_file = r_file,
         is_testrun = is_testrun,
+        accept_non_standard_chars = accept_non_standard_chars,
       )
 
   return {
@@ -308,13 +313,13 @@ async def test_reparse_all_files_as_docs(
 
 
 
-  print("\n==== PART 1 ===\n")
-
   file_count = 0
   docs_count = 0
   ids_count = 0
   
-  for item in items:
+  for index, item in enumerate(items):
+    
+    print(f"test_reparse_all_files_as_docs: {index} / {len(items)}")
     
     r_file = None
     
@@ -371,6 +376,7 @@ async def test_search_by_multi_vector_query_strings(
     num_candidates = data["num_candidates"] if "num_candidates" in data else 100,
     data_strategy = data["data_strategy"] if "data_strategy" in data else None,
     data_portion_type = data["data_portion_type"] if "data_portion_type" in data else None,
+    data_vector_query_strategy = data["data_vector_query_strategy"] if "data_vector_query_strategy" in data else 1,
     must_match_document_category = data["must_match_document_category"] if "must_match_document_category" in data else True,
     should_match_document_tags = data["should_match_document_tags"] if "should_match_document_tags" in data else 0,
     should_match_document_title = data["should_match_document_title"] if "should_match_document_title" in data else 0,
@@ -511,6 +517,7 @@ async def test_bot_llm_ask_question(
       num_candidates = data["num_candidates"] if "num_candidates" in data else 100,
       data_strategy = data["data_strategy"] if "data_strategy" in data else None,
       data_portion_type = data["data_portion_type"] if "data_portion_type" in data else None,
+      data_vector_query_strategy = data["data_vector_query_strategy"] if "data_vector_query_strategy" in data else 1,
       must_match_document_category = data["must_match_document_category"] if "must_match_document_category" in data else True,
       should_match_document_tags = data["should_match_document_tags"] if "should_match_document_tags" in data else 0,
       should_match_document_title = data["should_match_document_title"] if "should_match_document_title" in data else 0,
@@ -524,11 +531,16 @@ async def test_bot_llm_ask_question(
 
 
     def do_filter_es_result_item(it):
-      if it["score"] / it["record_max_score"] < 0.75:
-        return False
-      if it["score"] / it["possible_max_score"] < 0.60:
-        return False
-      return True
+      if os.getenv("ES_REMOVE_LOWSCORE_SEARCH_RESULTS") == "1":
+        if it["score"] / it["record_max_score"] < 0.75:
+          return False
+        if it["score"] / it["possible_max_score"] < 0.60:
+          return False
+        return True
+        
+      else:
+        return True
+    
 
     filtered_es_result = [ it for it in es_result if ( do_filter_es_result_item(it) )]
     
@@ -541,17 +553,17 @@ async def test_bot_llm_ask_question(
 
         group_filtered_es_result[it["file_id"]].append(it)
 
-
     aggregated_context = []
   
     for key_file_id in group_filtered_es_result.keys():
+      # print("KEY", key_file_id, group_filtered_es_result[key_file_id])
       document_header = f"""
 
 
 ---------
-{group_filtered_es_result[key_file_id][0]["metadata"]["document_remarks"] if "document_remarks" in it["metadata"] else ""}
-{group_filtered_es_result[key_file_id][0]["metadata"]["document_title"] if "document_title" in it["metadata"] else ""}
-{group_filtered_es_result[key_file_id][0]["metadata"]["document_summary"] if "document_summary" in it["metadata"] else ""}
+{group_filtered_es_result[key_file_id][0]["metadata"]["document_remarks"] if "document_remarks" in group_filtered_es_result[key_file_id][0]["metadata"] else ""}
+{group_filtered_es_result[key_file_id][0]["metadata"]["document_title"] if "document_title" in group_filtered_es_result[key_file_id][0]["metadata"] else ""}
+{group_filtered_es_result[key_file_id][0]["metadata"]["document_summary"] if "document_summary" in group_filtered_es_result[key_file_id][0]["metadata"] else ""}
 
 """
 
@@ -624,22 +636,6 @@ async def test_bot_llm_ask_question(
     is_busy = False
 
 
-    # Add log
-    await Log.create(**{
-      "type": "chatllm",
-      "field1": json.dumps({
-        "index_name": vo_es.index_name,
-        "question": vo_es.question,
-      }, ensure_ascii=False),
-      "field2": json.dumps({
-        "data": {
-          "answer_result": llm_answer_result["answer_result"],
-        },
-        "suggested_token": suggested_token,
-        "prompt_token": prompt_token,
-        "input_llm_max_token": input_llm_max_token,
-      }, ensure_ascii=False),
-    })
 
 
     return {
@@ -650,6 +646,9 @@ async def test_bot_llm_ask_question(
       "prompt_token": prompt_token,
       "input_llm_max_token": input_llm_max_token,
       "prompt": prompt,
+      "group_filtered_es_result_count": len(group_filtered_es_result),
+      "filtered_es_result_count": len(filtered_es_result_count),
+      "es_result_count": len(es_result),
       "group_filtered_es_result": group_filtered_es_result,
       "filtered_es_result": filtered_es_result,
       "es_result": es_result,

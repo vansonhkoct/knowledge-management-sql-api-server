@@ -73,6 +73,9 @@ def generate_multi_vector_knn(
         voDocSearch.knn_boosts = {}
 
 
+
+    query_texts = {}
+
     if voDocSearch.query_vectors is None:
         if voDocSearch.query_strings is None:
             
@@ -80,23 +83,50 @@ def generate_multi_vector_knn(
             
             if voDocSearch.is_search_strategy_2():
                 
-                if voDocSearch.get_search_portion_type() == _constants.DATA_PORTION_TYPE_PAGE:
-                    query_strings["page_content_vector"] = voDocSearch.question
-                    query_strings["document_header_vector"] = voDocSearch.question
-                    voDocSearch.knn_boosts["page_content_vector"] = 0.92
-                    voDocSearch.knn_boosts["document_header_vector"] = 0.08
+                if voDocSearch.data_vector_query_strategy == 4:
+                    
+                    if voDocSearch.data_portion_type == "PAGE":
 
-                if voDocSearch.get_search_portion_type() == _constants.DATA_PORTION_TYPE_CHUNK:
-                    query_strings["page_content_vector"] = voDocSearch.question
-                    query_strings["document_header_vector"] = voDocSearch.question
-                    voDocSearch.knn_boosts["page_content_vector"] = 0.95
-                    voDocSearch.knn_boosts["document_header_vector"] = 0.05
+                        query_texts["page_content"] = voDocSearch.question
+                        voDocSearch.knn_boosts["page_content"] = 0.03
+                        
+                        query_texts["document_header"] = voDocSearch.question
+                        voDocSearch.knn_boosts["document_header"] = 0.018
+                    
+                    elif voDocSearch.data_portion_type == "CHUNK990":
 
-                if voDocSearch.get_search_portion_type() == _constants.DATA_PORTION_TYPE_CHUNK990:
-                    query_strings["page_content_vector"] = voDocSearch.question
-                    query_strings["document_header_vector"] = voDocSearch.question
-                    voDocSearch.knn_boosts["page_content_vector"] = 0.935
-                    voDocSearch.knn_boosts["document_header_vector"] = 0.065
+                        query_texts["page_content"] = voDocSearch.question
+                        voDocSearch.knn_boosts["page_content"] = 0.04
+                        
+                        query_texts["document_header"] = voDocSearch.question
+                        voDocSearch.knn_boosts["document_header"] = 0.02
+                    
+                    else:
+
+                        query_texts["page_content"] = voDocSearch.question
+                        voDocSearch.knn_boosts["page_content"] = 0.07
+                        
+                        query_texts["document_header"] = voDocSearch.question
+                        voDocSearch.knn_boosts["document_header"] = 0.03
+
+                    query_strings["page_content_w_header_vector"] = voDocSearch.question
+                    voDocSearch.knn_boosts["page_content_w_header_vector"] = 1.0
+                    
+                else:
+                    query_strings["page_content_w_header_vector"] = voDocSearch.question
+                    voDocSearch.knn_boosts["page_content_w_header_vector"] = 1.0
+                # if voDocSearch.data_vector_query_strategy == 2:
+                #     query_strings["page_content_vector"] = voDocSearch.question
+                #     voDocSearch.knn_boosts["page_content_vector"] = 1.0
+
+                # elif voDocSearch.data_vector_query_strategy == 3:
+
+                # else:
+                #     query_strings["page_content_vector"] = voDocSearch.question
+                #     query_strings["document_header_vector"] = voDocSearch.question
+                #     voDocSearch.knn_boosts["page_content_vector"] = 0.96
+                #     voDocSearch.knn_boosts["document_header_vector"] = 0.04
+
             else:
                 query_strings["vector"] = voDocSearch.question
                 voDocSearch.knn_boosts["vector"] = 1.0
@@ -113,7 +143,7 @@ def generate_multi_vector_knn(
 
     
     
-    
+    print("Emergency debug", voDocSearch.data_vector_query_strategy, query_strings, query_texts, voDocSearch.knn_boosts)
     
     query = {}
     
@@ -134,7 +164,20 @@ def generate_multi_vector_knn(
     qbool = {}
 
 
-
+    
+    if (len(query_texts.keys()) > 0):
+        qbool["should"] = [] if "should" not in qbool else qbool["should"]
+        
+        for field_name, field_text in query_texts.items():
+            qbool["should"].append({
+                "match": {
+                    field_name: {
+                        "query": field_text,
+                        "boost": voDocSearch.knn_boosts.get(field_name, 1.0)
+                    }
+                }
+            })
+    
 
 
     if voDocSearch.is_search_strategy_2():
