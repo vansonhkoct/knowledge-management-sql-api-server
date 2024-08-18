@@ -7,15 +7,12 @@ from src.models.master import UserSession
 
 
 _LOGTYPE_USER_LOGIN = "USER_LOGIN"
-_LOGTYPE_CHATLLM_API = "CHATLLM_API"
-_LOGTYPE_USER_LOGIN = "USER_LOGIN"
-_LOGTYPE_USER_LOGIN = "USER_LOGIN"
-_LOGTYPE_USER_LOGIN = "USER_LOGIN"
+_LOGTYPE_CHATLLM_API = "ASK"
 
 
 def add_log_user_login(
   user: User, 
-  userSession: UserSession
+  userSession: UserSession,
   ):
     # Add log
     asyncio.create_task(

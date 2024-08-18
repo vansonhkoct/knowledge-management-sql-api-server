@@ -57,7 +57,7 @@ async def auth_login(
       user=user,
     )
     
-    add_log_user_login(user=user)
+    add_log_user_login(user=user, userSession=userSession)
   
     return {
       "success": True,
