@@ -45,7 +45,7 @@ def add_log_apillm(
         }, ensure_ascii=False),
         "field2": json.dumps({
           "data": {
-            "answer_result": llm_answer_result["answer_result"],
+            "answer_result": llm_answer_result["answer_result"] if llm_answer_result is not None and "answer_result" in llm_answer_result else None,
           },
           "suggested_token": suggested_token,
           "prompt_token": prompt_token,

@@ -533,9 +533,11 @@ async def test_bot_llm_ask_question(
 
     def do_filter_es_result_item(it):
       if os.getenv("ES_REMOVE_LOWSCORE_SEARCH_RESULTS") == "1":
-        if it["score"] / it["record_max_score"] < 0.75:
-          return False
-        if it["score"] / it["possible_max_score"] < 0.60:
+        # if it["score"] / it["record_max_score"] < 0.75:
+        #   return False
+        # if it["score"] / it["possible_max_score"] < 0.60:
+        #   return False
+        if it["score"] < 1.7:
           return False
         return True
         
@@ -600,6 +602,7 @@ async def test_bot_llm_ask_question(
       # "\n\n根據上述已知信息，簡潔和專業的來回答用户的問題。如果無法從中得到答案，請説 “根據已知信息無法回答該問題” 或 “沒有提供足夠的相關信息”，不允許在答案中添加其他任何成分，答案請使用中文。 以下是問題： 根據已知信息，",
       "\n\n===================\n\n請閱讀上述文件段落，單純依靠系統所提供的信息 (不必考慮信息以外的知識)，並使用中文（不要使用其他語言）告訴我：",
       data["question"],
+      "\n\n===================\n\n如果無法從系統提供的資料段落和我的問題匹配，請嘗試參考資料段落，從而建議我可以嘗試詢問的問題。"
     ])
     
     suggested_token = 8192

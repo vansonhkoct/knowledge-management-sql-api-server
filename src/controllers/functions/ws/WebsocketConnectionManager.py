@@ -49,8 +49,8 @@ async def lifo_engine():
             del wsConnectionManager.lifo_cache_map[api_uid]
 
 
-        # Wait for 0.25 seconds
-        await asyncio.sleep(0.25)
+        # Wait for 0.15 seconds
+        await asyncio.sleep(0.15)
 
 
 asyncio.ensure_future(lifo_engine())
