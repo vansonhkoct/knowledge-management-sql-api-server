@@ -10,6 +10,7 @@ embedding_model = os.getenv("ES_EMBEDDING_MODEL")
 es_verbose = True if os.getenv("ES_VERBOSE") == "1" else False
 es_debug = True if (os.getenv("ES_DEBUG") == "1" or os.getenv("ES_VERBOSE") == "1") else False
 
+llm_model_enable_api = True if os.getenv("ES_CHATLLM_LLM_MODEL_ENABLE_API") == "1" else False
 llm_model_uses_gpu = True if os.getenv("ES_CHATLLM_LLM_MODEL_USES_GPU") == "1" else False
 llm_model = os.getenv("ES_CHATLLM_LLM_MODEL_GPU") if llm_model_uses_gpu == True else os.getenv("ES_CHATLLM_LLM_MODEL_CPU")
 llm_controller_debug = True if os.getenv("ES_CHATLLM_LLM_CONTROLLER_DEBUG") == "1" else False

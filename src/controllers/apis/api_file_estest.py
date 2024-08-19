@@ -29,6 +29,7 @@ from src.controllers.functions.ws.WebsocketConnectionManager import wsConnection
 from src.controllers.functions.esbundle import es_chatllm as ESChatLLM
 from src.controllers.functions.esbundle.include.ElasticSearchDao.ESVo import ESVoDocSearch, ESVoDocInsert
 from src.controllers.functions.esbundle.include.ChatLLMDao.LLMVo import LLMVoAskQuestion
+from src.controllers.functions.esbundle.include.ConfigParams import llm_model_enable_api
 
 from src.models.master import File, KMFile
 from src.models.master import Category, KMCategory
@@ -47,6 +48,7 @@ router = APIRouter(prefix="/api/v1")
 TAG_C001 = "C_FILE_ESTEST001"
 TAG_E001 = "E_FILE_ESTEST001"
 TAG_E002 = "E_FILE_ESTEST002"
+TAG_E003 = "E_FILE_ESTEST003"
 
 
 
@@ -543,6 +545,15 @@ is_busy: bool = False
 async def test_bot_llm_ask_question(
   request: Request,
 ):
+  if not llm_model_enable_api:
+    raise HTTPException(
+      status_code=400,
+      detail={
+        "message": TAG_E003,
+        "error": f"Server LLM ask question ability disabled",
+      }
+    )
+  
   data = await request.json()
     
   global is_busy
