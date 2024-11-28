@@ -2,6 +2,7 @@
 from .ChatLLM import ChatLLM, ChatLLMAnswerResult
 from .ChatGLM3 import ChatGLM3, ChatGLM3AnswerResult
 from .ChatGLM4 import ChatGLM4, ChatGLM4AnswerResult
+from .ChatGPTAPI import ChatGPTAPI, ChatGPTAPIAnswerResult
 from .ChatLLMDao.LLMVo import LLMVoAskQuestion
 from typing import Union
 import time
@@ -11,8 +12,8 @@ import pkg_resources
 converter = opencc.OpenCC('s2t.json')
 
 
-ChatModelInterface = Union[ChatLLM, ChatGLM3, ChatGLM4]
-ChatModelAnswerResult = Union[ChatLLMAnswerResult, ChatGLM3AnswerResult, ChatGLM4AnswerResult]
+ChatModelInterface = Union[ChatLLM, ChatGLM3, ChatGLM4, ChatGPTAPI]
+ChatModelAnswerResult = Union[ChatLLMAnswerResult, ChatGLM3AnswerResult, ChatGLM4AnswerResult, ChatGPTAPIAnswerResult]
 
 class ChatLLMController:
 
@@ -36,6 +37,9 @@ class ChatLLMController:
         self,
         llm_model_name: str = "chatglm2",
     ):
+        if llm_model_name == "chatgpt_api":
+            return "chatgpt_api"
+
         if self._get_python_package_version("transformers") == "4.44.0":
             llm_model_name = "chatglm4"
         elif self._get_python_package_version("transformers") == "4.40.0":
@@ -69,6 +73,11 @@ class ChatLLMController:
                 chatglm4 = ChatGLM4(llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
                 chatglm4.load_llm()
                 self.llm_collections[llm_model_name] = chatglm4
+                
+            elif llm_model_name == "chatgpt_api":
+                chatgpt_api = ChatGPTAPI()
+                self.llm_collections[llm_model_name] = chatgpt_api
+                
         
         return self.llm_collections[llm_model_name]
     
