@@ -8,6 +8,29 @@ from src.models.master import User, UserCredential, UserCredentialType
 
 
 
+def make_password_hash(
+  password: str,
+):
+  try:
+    return hashPassword(password=password)
+  except Exception as e:
+    raise e
+
+
+def check_password_hash(
+  password_hash: str,
+  password: str,
+):
+  try:
+    return (checkPassword(
+      hashed_password=password_hash,
+      password=password,
+    ))
+  except Exception as e:
+    raise e
+
+
+
 def make_user_credential(
   username: str,
   password: str,

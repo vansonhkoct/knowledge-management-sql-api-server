@@ -24,6 +24,7 @@ from src.controllers.functions.file.file import on_remove_file
 from src.controllers.functions.file.file import on_upload_file
 from src.controllers.functions.file.file import fetch_es_docs
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from src.controllers.functions.user.userauth_email import make_password_hash, check_password_hash
 from src.controllers.functions.ws.WebsocketConnectionManager import wsConnectionManager
 from src.controllers.functions.esbundle import es_chatllm as ESChatLLM
 from src.controllers.functions.esbundle.include.ElasticSearchDao.ESVo import ESVoDocSearch, ESVoDocInsert
@@ -46,6 +47,70 @@ router = APIRouter(prefix="/api/v1")
 TAG_C001 = "C_FILE_ESTEST001"
 TAG_E001 = "E_FILE_ESTEST001"
 TAG_E002 = "E_FILE_ESTEST002"
+
+
+
+@router.post("/file_estest/make_password_hash")
+async def makePasswordHash(
+  request: Request,
+):
+  try:
+    data = await request.json()
+    password = data["password"]
+    
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": make_password_hash(
+        password = password,
+      ),
+    }
+
+  except Exception as e:
+    stacktrace = traceback.format_exc()
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+      }
+    )
+
+
+
+@router.post("/file_estest/check_password_hash")
+async def checkPasswordHash(
+  request: Request,
+):
+  try:
+    data = await request.json()
+    password = data["password"]
+    password_hash = data["password_hash"]
+
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": check_password_hash(
+        password_hash = password_hash,
+        password = password,
+      ),
+    }
+
+  except Exception as e:
+    stacktrace = traceback.format_exc()
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+      }
+    )
+
+
+
+
 
 @router.post("/file_estest/initializeES")
 async def initializeES(
