@@ -12,14 +12,14 @@ async_extract_pdf_file_to_text = None
 
 def bootstrapImportESBundle():
   global ESChatLLM
-  global extract_pdf_file_to_text
+  global async_extract_pdf_file_to_text
   
   if (ESChatLLM is None):
-    import controllers.functions.esbundle.es_chatllm as _ESChatLLM
+    import src.controllers.functions.esbundle.es_chatllm as _ESChatLLM
     ESChatLLM = _ESChatLLM
     
-  if (extract_pdf_file_to_text is None):
-    from controllers.functions.esbundle.es_chatllm import async_extract_pdf_file_to_text as _async_extract_pdf_file_to_text
+  if (async_extract_pdf_file_to_text is None):
+    from src.controllers.functions.esbundle.es_chatllm import async_extract_pdf_file_to_text as _async_extract_pdf_file_to_text
     async_extract_pdf_file_to_text = _async_extract_pdf_file_to_text
 
 
