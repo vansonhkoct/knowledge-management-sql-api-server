@@ -212,8 +212,8 @@ def generate_multi_vector_knn(
     if (voDocSearch.must_match_document_category):
         qbool["must"] = [] if "must" not in qbool else qbool["must"]
         qbool["must"].append({
-            "term": {
-                "metadata.document_category.keyword": ( voDocSearch.document_category.split(",") ) if (voDocSearch.document_category is not None) else voDocSearch.document_category
+            "terms": {
+                "metadata.document_category.keyword": ( voDocSearch.document_category.split(",") ) if (voDocSearch.document_category is not None) else []
             }
         })
     

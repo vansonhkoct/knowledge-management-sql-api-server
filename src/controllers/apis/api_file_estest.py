@@ -745,9 +745,9 @@ async def test_bot_llm_ask_question(
         "message": TAG_E001,
         "error": str(e),
         "stacktrace": stacktrace,
-        "suggested_token": suggested_token,
-        "prompt_token": prompt_token,
-        "input_llm_max_token": input_llm_max_token,
+        # "suggested_token": suggested_token,
+        # "prompt_token": prompt_token,
+        # "input_llm_max_token": input_llm_max_token,
       }
     )
 
