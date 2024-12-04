@@ -35,7 +35,7 @@ class ChatGPTAPI():
     def _yield_stream_tokens(self, stream_url, messages = []):
         response = requests.post(stream_url, data=json.dumps({
           "stream": True,
-          "model": "qwen-2.5-7b",
+          "model": os.getenv("ES_CHATGPT_API_MODEL_NAME"),
           "messages": messages,
         }), stream=True)
 
