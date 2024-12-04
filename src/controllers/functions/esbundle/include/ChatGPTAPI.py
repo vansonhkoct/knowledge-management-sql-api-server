@@ -1,10 +1,10 @@
+import os
 import requests
 import json
 from typing import Union, List, Optional
 import opencc
 
-# CHATGPT_API_ENDPOINT = "https://ai-exo-api-1.octopus-tech.com:52415/v1/chat/completions"
-CHATGPT_API_ENDPOINT = "http://192.168.2.116:52415/v1/chat/completions"
+CHATGPT_API_ENDPOINT = os.getenv("ES_CHATGPT_API_ENDPOINT")
 
 class ChatGPTAPIAnswerResult:
     history: List[List[str]] = []
