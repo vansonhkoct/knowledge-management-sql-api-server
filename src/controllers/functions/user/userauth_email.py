@@ -1,5 +1,7 @@
 import traceback
 
+from tortoise.expressions import Q
+
 from src.controllers.functions._generic.fileutils import UploadFileRecord, upload_file_write_to_upload_folder
 from src.controllers.functions._generic.modelutils import hashPassword, checkPassword
 from ..file.file import create_entry_file
@@ -32,6 +34,7 @@ def check_password_hash(
 
 
 def make_user_credential(
+  user_id: str,
   username: str,
   password: str,
 ):
@@ -42,7 +45,33 @@ def make_user_credential(
       "username": username,
       "password_hash": hashPassword(password=password)
     })
+    
+    item.user_id = user_id
 
+    return item
+
+  except Exception as e:
+    raise e
+
+
+async def remake_user_credential(
+  user_id: str,
+  password: str,
+):
+  try:
+    filters = {}
+    filters["user_id"] = user_id
+    filters["credential_type"] = UserCredentialType.EMAIL
+
+    item = (
+      await UserCredential
+        .filter(Q(**filters))
+        .first()
+    )
+    
+    if item:
+      item.password_hash = hashPassword(password=password)
+      
     return item
 
   except Exception as e:
@@ -60,6 +89,9 @@ async def obtain_user_by_user_credential(
       "status": "ACTIVATED",
       "username": username,
     }).first()
+    
+    if not item:
+      return None
     
     if (checkPassword(
       hashed_password=item.password_hash,
@@ -87,7 +119,10 @@ async def obtain_user_by_user_credential_and_party_id(
       "status": "ACTIVATED",
       "username": username,
     }).first()
-    
+        
+    if not item:
+      return None
+
     if (checkPassword(
       hashed_password=item.password_hash,
       password=password,

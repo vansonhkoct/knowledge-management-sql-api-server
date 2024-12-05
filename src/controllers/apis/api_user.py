@@ -5,7 +5,7 @@ from typing import Annotated
 from tortoise.expressions import Q
 from tortoise.contrib.pydantic import pydantic_model_creator
 
-from src.controllers.functions.user.user import create_user
+from src.controllers.functions.user.user import create_user, update_user_password
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info, delete_access_token
 
 from src.models.master import KMUser, User, Role, Permission, UserCredential, UserCredentialType
@@ -299,11 +299,15 @@ async def update(
     if "username" in data:
       item.username = data["username"]
 
-    # if "password" in data:
-    #   item.password = data["password"]
-
 
     await item.save()
+
+
+    if "password" in data:
+      await update_user_password(
+        user_id=item.id,
+        password=data["password"],
+      )
     
     
     

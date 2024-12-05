@@ -1,6 +1,6 @@
 import traceback
 
-from .userauth_email import make_user_credential
+from .userauth_email import make_user_credential, remake_user_credential
 from src.models.master import User, Role, Party
 
 
@@ -17,8 +17,16 @@ async def create_user(
     "name": name,
   })
 
-  item_userCredential = make_user_credential(username=username, password=password)
-  item_userCredential.user_id = item.id
+  item_userCredential = make_user_credential(user_id=item.id, username=username, password=password)
   await item_userCredential.save()
 
   return item
+
+
+
+async def update_user_password(
+  user_id: str,
+  password: str,
+):
+  item_userCredential = await remake_user_credential(user_id=user_id, password=password)
+  await item_userCredential.save()
