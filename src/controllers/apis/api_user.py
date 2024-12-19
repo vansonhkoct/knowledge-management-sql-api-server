@@ -148,6 +148,147 @@ async def user_create(
 
 
 
+@router.post("/user/upsert_by_username")
+async def user_upsert_by_username(
+  request: Request,
+):
+  try:
+    headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
+    
+    party_id = user.party_id
+
+
+    dbg_result = {}
+    
+    
+    data = await request.json()
+    
+    is_test = data["is_test"] if "is_test" in data else False
+    name = data["name"] if "name" in data else ""
+    username = data["username"] if "username" in data else ""
+    password = data["password"] if "password" in data else ""
+    role_code = data["role_code"] if "role_code" in data else ""
+    
+    role = None if role_code == "" else await Role.filter(
+      party_id=party_id,
+      code=role_code,
+    ).first()
+    
+    
+    if username == "":
+      raise Exception("username is empty")
+    
+
+    
+    ##
+    
+    dbg_result["name"] = name
+    dbg_result["party_id"] = user.party_id
+    dbg_result["username"] = username
+    dbg_result["password"] = password
+    dbg_result["role_code"] = role_code
+    dbg_result["role.id"] = role.id if role is not None else None
+    
+    
+    ##
+    
+    existingUserItem = await User.filter(**{
+      "username": username,
+      "is_deleted": False,
+    }).first()
+
+
+    is_create_user = False
+    is_update_user = False
+
+
+
+    if existingUserItem is None:
+      is_create_user = True
+    else:
+      is_update_user = True
+
+
+
+
+    ##
+    
+    if is_create_user:
+      if name == "":
+        raise Exception("name is empty")
+      
+      if password == "":
+        raise Exception("password is empty")
+      
+      if role is None:
+        raise Exception(f"role not found for role_code: {role_code}")
+      
+      
+      dbg_result["create_user"] = True
+      
+      if not is_test:
+        newUserItem = await create_user(
+          name=name,
+          party_id=user.party_id,
+          role_id=role.id,
+          username=username,
+          password=password,
+        )
+    
+    
+    
+    ##
+    
+    if is_update_user:
+      if name != "":
+        existingUserItem.name = name
+
+      if role is not None:
+        existingUserItem.role_id = role.id
+
+      
+      dbg_result["update_user"] = True
+      
+      if not is_test:
+        await existingUserItem.save()
+
+      if password != "":
+        
+        dbg_result["update_user_password"] = True
+        
+        if not is_test:
+          await update_user_password(
+            user_id=existingUserItem.id,
+            password=password,
+          )
+      
+    
+    
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": {
+        "dbg_result": dbg_result,
+      },
+    }
+
+  except Exception as e:
+    stacktrace = traceback.format_exc()
+    print(e)
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+      }
+    )
+
+
+
+
+
 @router.get("/user")
 async def fetch(
   request: Request,

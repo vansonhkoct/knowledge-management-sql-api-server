@@ -15,9 +15,10 @@ async def create_user(
     "party_id": party_id,
     "role_id": role_id,
     "name": name,
+    "username": username,
   })
 
-  item_userCredential = make_user_credential(user_id=item.id, username=username, password=password)
+  item_userCredential = make_user_credential(user_id=item.id, password=password)
   await item_userCredential.save()
 
   return item

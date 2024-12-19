@@ -35,19 +35,16 @@ def check_password_hash(
 
 def make_user_credential(
   user_id: str,
-  username: str,
   password: str,
 ):
   try:
     item = UserCredential(**{
       "credential_type": UserCredentialType.EMAIL,
       "status": "ACTIVATED",
-      "username": username,
-      "password_hash": hashPassword(password=password)
+      "password_hash": hashPassword(password=password),
+      "user_id": user_id,
     })
     
-    item.user_id = user_id
-
     return item
 
   except Exception as e:
@@ -72,6 +69,14 @@ async def remake_user_credential(
     if item:
       item.password_hash = hashPassword(password=password)
       
+    else:
+      item = UserCredential(**{
+        "credential_type": UserCredentialType.EMAIL,
+        "status": "ACTIVATED",
+        "password_hash": hashPassword(password=password),
+        "user_id": user_id,
+      })
+      
     return item
 
   except Exception as e:
@@ -84,10 +89,15 @@ async def obtain_user_by_user_credential(
   password: str,
 ):
   try:
+    user = await User.filter(**{
+      "username": username,
+      "is_deleted": False,
+    }).first()
+    
     item = await UserCredential.filter(**{
       "credential_type": UserCredentialType.EMAIL,
       "status": "ACTIVATED",
-      "username": username,
+      "user_id": user.id,
     }).first()
     
     if not item:
@@ -113,11 +123,17 @@ async def obtain_user_by_user_credential_and_party_id(
   party_id: str,
 ):
   try:
+    user = await User.filter(**{
+      "username": username,
+      "party_id": party_id,
+      "is_deleted": False,
+    }).first()
+    
     item = await UserCredential.filter(**{
       "user__party_id": party_id,
       "credential_type": UserCredentialType.EMAIL,
       "status": "ACTIVATED",
-      "username": username,
+      "user_id": user.id,
     }).first()
         
     if not item:

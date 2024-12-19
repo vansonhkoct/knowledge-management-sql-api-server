@@ -121,6 +121,7 @@ class User(Model, _ModelBaseAccess, _ModelBaseBody):
     userSessions: fields.ReverseRelation["UserSession"]
     userRequests: fields.ReverseRelation["UserRequest"]
     
+    username = fields.CharField(256, index=True, null=False)
     email = fields.CharField(512, index=True, null=True)
     short_name = fields.CharField(256, index=True, null=True)
     phone_code = fields.CharField(24, index=True, null=True)
@@ -142,7 +143,6 @@ class UserCredential(Model, _ModelBaseAccess):
     user = fields.ForeignKeyField("models.User", related_name="userCredentials", null=True)
     credential_type = fields.CharEnumField(enum_type=UserCredentialType, index=True)
     status = fields.CharField(max_length=10, index=True, null=True)
-    username = fields.CharField(max_length=256, index=True, unique=True, null=True)
     password_hash = fields.CharField(max_length=256, index=True, null=True)
     def __str__(self):
         return self.name
