@@ -148,33 +148,33 @@ async def party_create(
     
     
     
-    it_permission_user_manage = await Permission.create(**{
+    it_permission_user_manage = await Permission.filter(**{
       "code": "user -> manage",
-    })
+    }).first()
     
-    it_permission_category_manage = await Permission.create(**{
+    it_permission_category_manage = await Permission.filter(**{
       "code": "category -> manage",
-    })
+    }).first()
 
-    it_permission_file_manage = await Permission.create(**{
+    it_permission_file_manage = await Permission.filter(**{
       "code": "file -> manage",
-    })
+    }).first()
 
-    it_permission_role_manage = await Permission.create(**{
+    it_permission_role_manage = await Permission.filter(**{
       "code": "role -> manage",
-    })
+    }).first()
 
-    it_permission_role_accessible_category_manage = await Permission.create(**{
+    it_permission_role_accessible_category_manage = await Permission.filter(**{
       "code": "role -> accessible_category -> manage",
-    })
+    }).first()
 
-    it_permission_permission_manage = await Permission.create(**{
+    it_permission_permission_manage = await Permission.filter(**{
       "code": "permission -> manage",
-    })
+    }).first()
 
-    it_permission_knowledge_search = await Permission.create(**{
+    it_permission_knowledge_search = await Permission.filter(**{
       "code": "knowledge -> search",
-    })
+    }).first()
     
     
     
