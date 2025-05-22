@@ -3,6 +3,8 @@ import traceback
 from fastapi import APIRouter, File as FastAPIFile, UploadFile, Form, Request, Body
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi import HTTPException
+from fastapi.responses import StreamingResponse
+
 from typing import Annotated
 from tortoise.expressions import Q
 import asyncio
@@ -542,8 +544,24 @@ is_busy: bool = False
 
 
 @router.post("/file_estest/test_llm_ask_question")
-async def test_bot_llm_ask_question(
+async def test_llm_ask_question(
   request: Request,
+):
+  data = await request.json()
+  is_streaming = data["is_streaming"] if "is_streaming" in data else False
+  
+  if is_streaming:
+    return StreamingResponse(generator_test_bot_llm_ask_question(request=request, is_streaming=True), media_type="text/event-stream")
+  else:
+    return generator_test_bot_llm_ask_question(request=request)
+
+
+
+
+
+async def generator_test_bot_llm_ask_question(
+  request: Request,
+  is_streaming: bool = False,
 ):
   if not llm_model_enable_api:
     raise HTTPException(
@@ -707,9 +725,16 @@ async def test_bot_llm_ask_question(
     )
     
     if not (data["skip_llm"] if "skip_llm" in data else False):
-      llm_answer_result = await ESChatLLM.bot_llm_ask_question(
+      async for _llm_answer_result, stream_result in ESChatLLM.bot_llm_ask_question(
         vo=vo_llm,
-      )
+      ):
+        if is_streaming:
+          if stream_result is not None:
+            yield stream_result
+          
+        if _llm_answer_result is not None:
+          llm_answer_result = _llm_answer_result
+
     else:
       llm_answer_result = None
 
@@ -731,7 +756,7 @@ async def test_bot_llm_ask_question(
     )
 
 
-    return {
+    final_res = {
       "success": True,
       "message": TAG_C001,
       "data": llm_answer_result,
@@ -746,6 +771,13 @@ async def test_bot_llm_ask_question(
       "filtered_es_result": filtered_es_result,
       "es_result": es_result,
     }
+
+    if is_streaming:
+      yield final_res
+    else:
+      return final_res
+
+
     
   except Exception as e:
     is_busy = False
