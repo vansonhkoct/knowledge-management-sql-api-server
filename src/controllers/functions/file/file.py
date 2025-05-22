@@ -52,6 +52,7 @@ async def on_upload_file(
   document_title: str = None,
   document_summary: str = None,
   document_remarks: str = None,
+  document_userdata = None,
 ):
   bootstrapImportESBundle()
   
@@ -73,6 +74,7 @@ async def on_upload_file(
         "document_title": str(document_title) if document_title is not None else None,
         "document_summary": str(document_summary) if document_summary is not None else None,
         "document_remarks": str(document_remarks) if document_remarks is not None else None,
+        "document_userdata": document_userdata,
     },
     is_testrun = False,
   )
@@ -85,10 +87,12 @@ async def on_upload_file(
 
 
 
-async def on_move_file(
+async def on_update_file(
   party_id: str,
   file: File,
   category_id: str,
+  tags: list[str] = None,
+  userdata = None,
 ):
   bootstrapImportESBundle()
   
@@ -99,6 +103,8 @@ async def on_move_file(
       index_name=str(party_id),
       id=es_doc_ids[index],
       document_category=category_id if category_id != None else "",
+      document_tags=tags,
+      document_userdata=userdata,
     )
   
   

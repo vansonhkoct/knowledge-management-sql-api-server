@@ -79,7 +79,8 @@ class ElasticSearchController:
         index_name: str, 
         id: str,
         document_category: str,
-        document_tags: list[str],
+        document_tags: list[str] = None,
+        document_userdata = None,
     ):
         return DocUpdate.doc_update_document_metadata(
             es_client = self.es_client,
@@ -87,6 +88,7 @@ class ElasticSearchController:
             id = id,
             document_category = document_category,
             document_tags = document_tags,
+            document_userdata = document_userdata,
         )
 
 

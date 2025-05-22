@@ -216,12 +216,36 @@ def generate_multi_vector_knn(
                 "metadata.document_category.keyword": ( voDocSearch.document_category.split(",") ) if (voDocSearch.document_category is not None) else []
             }
         })
+        
+    if (voDocSearch.document_category_ids is not None and len(voDocSearch.document_category_ids) > 0):
+        qbool["must"] = [] if "must" not in qbool else qbool["must"]
+        qbool["must"].append({
+            "terms": {
+                "metadata.document_category.keyword": voDocSearch.document_category_ids
+            }
+        })
     
     if (voDocSearch.document_file_ids is not None and len(voDocSearch.document_file_ids) > 0):
         qbool["must"] = [] if "must" not in qbool else qbool["must"]
         qbool["must"].append({
             "terms": {
                 "metadata.document_file_id.keyword": voDocSearch.document_file_ids
+            }
+        })
+        
+    if (voDocSearch.document_tags is not None and len(voDocSearch.document_tags) > 0):
+        qbool["must"] = [] if "must" not in qbool else qbool["must"]
+        qbool["must"].append({
+            "terms": {
+                "metadata.document_tags.keyword": voDocSearch.document_tags
+            }
+        })
+        
+    if (voDocSearch.exclude_document_file_ids is not None and len(voDocSearch.exclude_document_file_ids) > 0):
+        qbool["must_not"] = [] if "must_not" not in qbool else qbool["must_not"]
+        qbool["must_not"].append({
+            "terms": {
+                "metadata.document_file_id.keyword": voDocSearch.exclude_document_file_ids
             }
         })
 

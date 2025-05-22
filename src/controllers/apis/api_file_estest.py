@@ -20,10 +20,6 @@ from src.controllers.functions._generic.fileutils import remove_file_from_upload
 from src.controllers.functions._generic.fileutils import load_uploaded_file
 from src.controllers.functions.log.log import add_log_apillm
 from src.controllers.functions.file.file import bootstrapImportESBundle
-from src.controllers.functions.file.file import create_entry_file
-from src.controllers.functions.file.file import on_move_file
-from src.controllers.functions.file.file import on_remove_file
-from src.controllers.functions.file.file import on_upload_file
 from src.controllers.functions.file.file import fetch_es_docs
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
 from src.controllers.functions.user.userauth_email import make_password_hash, check_password_hash
@@ -607,7 +603,10 @@ async def generator_test_bot_llm_ask_question(
       query_vectors = data["query_vectors"] if "query_vectors" in data else None,
       knn_boosts = data["knn_boosts"] if "knn_boosts" in data else None,
       document_category = data["document_category"],
+      document_category_ids = data["document_category_ids"] if "document_category_ids" in data else None,
+      document_tags = data["document_tags"] if "document_tags" in data else None,
       document_file_ids = data["document_file_ids"] if "document_file_ids" in data else [],
+      exclude_document_file_ids = data["exclude_document_file_ids"] if "exclude_document_file_ids" in data else None,
       k = data["k"] if "k" in data else 10,
       num_candidates = data["num_candidates"] if "num_candidates" in data else 100,
       data_strategy = data["data_strategy"] if "data_strategy" in data else None,

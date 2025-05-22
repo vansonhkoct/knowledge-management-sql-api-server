@@ -1,4 +1,5 @@
 import traceback
+import json
 from fastapi import APIRouter, File as FastAPIFile, UploadFile, Form, Request
 from fastapi import HTTPException
 from typing import Annotated
@@ -9,7 +10,7 @@ from src.controllers.functions._generic.fileutils import upload_file_write_to_up
 from src.controllers.functions._generic.fileutils import remove_file_from_upload_folder
 from src.controllers.functions.file.file import bootstrapImportESBundle
 from src.controllers.functions.file.file import create_entry_file
-from src.controllers.functions.file.file import on_move_file
+from src.controllers.functions.file.file import on_update_file
 from src.controllers.functions.file.file import on_remove_file
 from src.controllers.functions.file.file import on_upload_file
 from src.controllers.functions.file.file import fetch_es_docs
@@ -59,6 +60,7 @@ async def upload_and_create(
   document_title: Annotated[str, Form()] = None,
   document_summary: Annotated[str, Form()] = None,
   document_remarks: Annotated[str, Form()] = None,
+  document_userdata: Annotated[str, Form()] = None,
   alias: Annotated[str, Form()] = None,
   # file: UploadFile = File(...),
   file: UploadFile = FastAPIFile(),
@@ -85,6 +87,9 @@ async def upload_and_create(
     
     if (document_tags is not None):
       document_tags = [ tag.strip() for tag in document_tags.split(",") ]
+      
+    if (document_userdata is not None):
+      document_userdata = json.loads(document_userdata)
     
     
     with open(file_ref.filepath, "rb") as r_file:
@@ -98,6 +103,7 @@ async def upload_and_create(
         document_title=document_title,
         document_summary=document_summary,
         document_remarks=document_remarks,
+        document_userdata=document_userdata,
       )
     
     
@@ -347,7 +353,7 @@ async def update(
     if "category_id" in data:
       item.category_id = data["category_id"]
       
-      await on_move_file(
+      await on_update_file(
         party_id=user.party_id,
         file=item,
         category_id=item.category_id

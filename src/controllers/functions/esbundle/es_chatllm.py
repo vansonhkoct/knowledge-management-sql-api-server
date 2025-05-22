@@ -74,6 +74,7 @@ async def bot_es_update_document_metadata(
     id,
     document_category,
     document_tags,
+    document_userdata,
 ):
     _bot_initialize_es()
     
@@ -83,6 +84,7 @@ async def bot_es_update_document_metadata(
             id = id,
             document_category=document_category,
             document_tags=document_tags,
+            document_userdata=document_userdata,
         )
         return res
 
