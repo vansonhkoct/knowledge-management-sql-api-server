@@ -41,6 +41,25 @@ async def upload_file_write_to_upload_folder(
   return upload_file_record, filebytes
 
 
+async def make_file_ref_from_plaintext(
+  plaintext: str,
+  alias: str = None,
+):
+  filename = alias if alias is not None else ""
+  filepath = ""
+  
+  filebytes = len(plaintext) if plaintext is not None else 0
+  
+  upload_file_record = UploadFileRecord(
+    alias = alias if alias is not None else "",
+    filepath=filepath,
+    filename=filename,
+    filesize=filebytes,
+    mimetype="",
+  )
+  
+  return upload_file_record, filebytes
+
 
 async def remove_file_from_upload_folder(
   filename: str,

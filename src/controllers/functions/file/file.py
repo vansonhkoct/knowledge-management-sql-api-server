@@ -47,6 +47,7 @@ async def on_upload_file(
   filename: str,
   file_id: str,
   file: BinaryIO,
+  plaintext: str,
   category_id: str,
   document_tags = [],
   document_title: str = None,
@@ -56,15 +57,18 @@ async def on_upload_file(
 ):
   bootstrapImportESBundle()
   
-  text_data, text = await async_extract_pdf_file_to_text(
-    filename=filename,
-    file=file,
-    meta_data_mapping = {
-        "document_file_id": str(file_id) if file_id != None else "",
-        "document_category": str(category_id) if category_id != None else "",
-    },
-    accept_non_standard_chars = False,
-  )
+  if plaintext is not None:
+    text = plaintext
+  else:
+    text_data, text = await async_extract_pdf_file_to_text(
+      filename=filename,
+      file=file,
+      meta_data_mapping = {
+          "document_file_id": str(file_id) if file_id != None else "",
+          "document_category": str(category_id) if category_id != None else "",
+      },
+      accept_non_standard_chars = False,
+    )
 
   vo = ESVoDocInsert(
     index_name = str(party_id),

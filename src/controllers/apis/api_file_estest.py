@@ -543,13 +543,28 @@ is_busy: bool = False
 async def test_llm_ask_question(
   request: Request,
 ):
-  data = await request.json()
-  is_streaming = data["is_streaming"] if "is_streaming" in data else False
-  
-  if is_streaming:
-    return StreamingResponse(generator_test_bot_llm_ask_question(request=request, is_streaming=True), media_type="text/event-stream")
-  else:
-    return generator_test_bot_llm_ask_question(request=request)
+  try:
+    data = await request.json()
+    is_streaming = data["is_streaming"] if "is_streaming" in data else False
+    
+    if is_streaming:
+      return StreamingResponse(generator_test_bot_llm_ask_question(request=request, is_streaming=True), media_type="text/event-stream")
+    else:
+      return generator_test_bot_llm_ask_question(request=request)
+
+  except Exception as e:
+    stacktrace = traceback.format_exc()
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+        # "suggested_token": suggested_token,
+        # "prompt_token": prompt_token,
+        # "input_llm_max_token": input_llm_max_token,
+      }
+    )
 
 
 
@@ -780,18 +795,7 @@ async def generator_test_bot_llm_ask_question(
     
   except Exception as e:
     is_busy = False
-    stacktrace = traceback.format_exc()
-    raise HTTPException(
-      status_code=500,
-      detail={
-        "message": TAG_E001,
-        "error": str(e),
-        "stacktrace": stacktrace,
-        # "suggested_token": suggested_token,
-        # "prompt_token": prompt_token,
-        # "input_llm_max_token": input_llm_max_token,
-      }
-    )
+    raise e
 
 
 

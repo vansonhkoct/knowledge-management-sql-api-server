@@ -7,6 +7,7 @@ from tortoise.expressions import Q
 
 from src.controllers.functions._generic.fileutils import UploadFileRecord
 from src.controllers.functions._generic.fileutils import upload_file_write_to_upload_folder
+from src.controllers.functions._generic.fileutils import make_file_ref_from_plaintext
 from src.controllers.functions._generic.fileutils import remove_file_from_upload_folder
 from src.controllers.functions.file.file import bootstrapImportESBundle
 from src.controllers.functions.file.file import create_entry_file
@@ -51,7 +52,6 @@ async def initializeES(
     )
 
 
-
 @router.post("/file/upload")
 async def upload_and_create(
   request: Request,
@@ -62,20 +62,77 @@ async def upload_and_create(
   document_remarks: Annotated[str, Form()] = None,
   document_userdata: Annotated[str, Form()] = None,
   alias: Annotated[str, Form()] = None,
-  # file: UploadFile = File(...),
   file: UploadFile = FastAPIFile(),
+  plaintext: Annotated[str, Form()] = None,
 ):
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+
+    party_id = user.party_id
+
+    if (document_tags is not None):
+      document_tags = [ tag.strip() for tag in document_tags.split(",") ]
+      
+    if (document_userdata is not None):
+      document_userdata = json.loads(document_userdata)
+    
+    if plaintext is not None:
+      return await upload_and_create_file_from_plaintext(
+        party_id = party_id,
+        category_id = category_id,
+        document_tags = document_tags,
+        document_title = document_title,
+        document_summary = document_summary,
+        document_remarks = document_remarks,
+        document_userdata = document_userdata,
+        alias = alias,
+        plaintext = plaintext,
+      )
+      
+    return await upload_and_create_file_from_file(
+      party_id = party_id,
+      category_id = category_id,
+      document_tags = document_tags,
+      document_title = document_title,
+      document_summary = document_summary,
+      document_remarks = document_remarks,
+      document_userdata = document_userdata,
+      alias = alias,
+      file = file,
+    )
+
+  except Exception as e:
+    stacktrace = traceback.format_exc()
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+      }
+    )
+
+
+
+async def upload_and_create_file_from_file(
+  party_id: str = None,
+  category_id: str = None,
+  document_tags: list[str] = None,
+  document_title: str = None,
+  document_summary: str = None,
+  document_remarks: str = None,
+  document_userdata = None,
+  alias: str = None,
+  file: UploadFile = FastAPIFile(),
+):
+  try:
     # Save the uploaded file to the local "./upload" folder
     file_ref, filebytes = await upload_file_write_to_upload_folder(
       file=file,
       alias=alias,
     )
     
-    party_id = user.party_id
-
     item = await create_entry_file(
       uploadFileRecord = file_ref,
       party_id=party_id,
@@ -83,13 +140,6 @@ async def upload_and_create(
     )
     
     es_doc_ids = []
-    
-    
-    if (document_tags is not None):
-      document_tags = [ tag.strip() for tag in document_tags.split(",") ]
-      
-    if (document_userdata is not None):
-      document_userdata = json.loads(document_userdata)
     
     
     with open(file_ref.filepath, "rb") as r_file:
@@ -122,15 +172,66 @@ async def upload_and_create(
     }
 
   except Exception as e:
-    stacktrace = traceback.format_exc()
-    raise HTTPException(
-      status_code=500,
-      detail={
-        "message": TAG_E001,
-        "error": str(e),
-        "stacktrace": stacktrace,
-      }
+    raise e
+
+
+
+
+async def upload_and_create_file_from_plaintext(
+  party_id: str = None,
+  category_id: str = None,
+  document_tags: list[str] = None,
+  document_title: str = None,
+  document_summary: str = None,
+  document_remarks: str = None,
+  document_userdata = None,
+  alias: str = None,
+  plaintext: str = None,
+):
+  try:
+    # Obtain file_ref from plaintext
+    file_ref, filebytes = await make_file_ref_from_plaintext(
+      plaintext=plaintext,
+      alias=alias,
     )
+    
+    item = await create_entry_file(
+      uploadFileRecord = file_ref,
+      party_id=party_id,
+      category_id=category_id,
+    )
+    
+    es_doc_ids = []
+    
+    docs, es_doc_ids, index_name = await on_upload_file(
+      party_id=party_id,
+      filename=file_ref.filename,
+      file_id=item.id,
+      plaintext=plaintext,
+      category_id=category_id,
+      document_tags=document_tags,
+      document_title=document_title,
+      document_summary=document_summary,
+      document_remarks=document_remarks,
+      document_userdata=document_userdata,
+    )
+    
+    item.es_doc_ids = ",".join(es_doc_ids if es_doc_ids is not None else [])
+    await item.save()
+
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": {
+        "item": item,
+        "es_doc_ids": es_doc_ids,
+        "index_name": index_name,
+        "docs": docs,
+      },
+    }
+
+  except Exception as e:
+    raise e
 
 
 
