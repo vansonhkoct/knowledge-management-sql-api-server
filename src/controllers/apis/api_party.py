@@ -277,6 +277,7 @@ async def party_create(
       it_permission_file_manage,
       it_permission_role_manage,
       it_permission_role_accessible_category_manage,
+      it_permission_knowledge_search,
     )
 
     await it_role_president.permissions.add(
