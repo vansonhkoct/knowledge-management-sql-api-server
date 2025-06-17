@@ -1,7 +1,4 @@
 
-from .ChatLLM import ChatLLM, ChatLLMAnswerResult
-from .ChatGLM3 import ChatGLM3, ChatGLM3AnswerResult
-from .ChatGLM4 import ChatGLM4, ChatGLM4AnswerResult
 from .ChatGPTAPI import ChatGPTAPI, ChatGPTAPIAnswerResult
 from .ChatLLMDao.LLMVo import LLMVoAskQuestion
 from typing import Union
@@ -12,8 +9,8 @@ import pkg_resources
 converter = opencc.OpenCC('s2t.json')
 
 
-ChatModelInterface = Union[ChatLLM, ChatGLM3, ChatGLM4, ChatGPTAPI]
-ChatModelAnswerResult = Union[ChatLLMAnswerResult, ChatGLM3AnswerResult, ChatGLM4AnswerResult, ChatGPTAPIAnswerResult]
+ChatModelInterface = Union[ChatGPTAPI]
+ChatModelAnswerResult = Union[ChatGPTAPIAnswerResult]
 
 class ChatLLMController:
 
@@ -35,46 +32,24 @@ class ChatLLMController:
 
     def _get_llm_model_name(
         self,
-        llm_model_name: str = "chatglm2",
+        llm_model_name: str = "chatgpt_api",
     ):
         if llm_model_name == "chatgpt_api":
             return "chatgpt_api"
 
-        if self._get_python_package_version("transformers") == "4.44.0":
-            llm_model_name = "chatglm4"
-        elif self._get_python_package_version("transformers") == "4.40.0":
-            llm_model_name = "chatglm3"
-        else:
-            llm_model_name = "chatglm2"
-            
         return llm_model_name
 
 
 
     def _get_llm_model_by_name(
         self,
-        llm_model_name: str = "chatglm2",
+        llm_model_name: str = "chatgpt_api",
     ):
         # TODO: now have to distinguish transformers version
         llm_model_name = self._get_llm_model_name(llm_model_name=llm_model_name)
 
         if llm_model_name not in self.llm_collections:
-            if llm_model_name == "chatglm2":
-                chatglm2 = ChatLLM(llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
-                chatglm2.load_llm()
-                self.llm_collections[llm_model_name] = chatglm2
-
-            if llm_model_name == "chatglm3":
-                chatglm3 = ChatGLM3(llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
-                chatglm3.load_llm()
-                self.llm_collections[llm_model_name] = chatglm3
-
-            elif llm_model_name == "chatglm4":
-                chatglm4 = ChatGLM4(llm_model_uses_gpu = ConfigParams.llm_model_uses_gpu)
-                chatglm4.load_llm()
-                self.llm_collections[llm_model_name] = chatglm4
-                
-            elif llm_model_name == "chatgpt_api":
+            if llm_model_name == "chatgpt_api":
                 chatgpt_api = ChatGPTAPI()
                 self.llm_collections[llm_model_name] = chatgpt_api
                 
