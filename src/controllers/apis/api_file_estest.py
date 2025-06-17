@@ -550,7 +550,16 @@ async def test_llm_ask_question(
     if is_streaming:
       return StreamingResponse(generator_test_bot_llm_ask_question(request=request, is_streaming=True), media_type="text/event-stream")
     else:
-      return generator_test_bot_llm_ask_question(request=request)
+      async_gen = generator_test_bot_llm_ask_question(request=request)
+      async_gen_response = None
+
+      try:
+        async for response in async_gen:
+          print(response)
+      except StopAsyncIteration as e:
+        async_gen_response = e.value
+
+      return async_gen_response
 
   except Exception as e:
     stacktrace = traceback.format_exc()
@@ -789,7 +798,7 @@ async def generator_test_bot_llm_ask_question(
     if is_streaming:
       yield final_res
     else:
-      return final_res
+      raise StopAsyncIteration(final_res)
 
 
     
