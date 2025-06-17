@@ -3,44 +3,11 @@ from langchain.docstore.document import Document
 from langchain.document_loaders import TextLoader
 from langchain.text_splitter import CharacterTextSplitter
 
-from .py_any2text_parser.pdf2text import extract_pdf_file_to_text
-
-from datetime import datetime
-
 import re
-
-from pathlib import Path
 
 
 class DocumentUtils:
 
-    @staticmethod
-    def pdf_to_text_file(pdf_filepath, meta_data_mapping = None):
-        # return ""
-        text_data, text = extract_pdf_file_to_text(
-            pdf_filepath, 
-            meta_data_mapping = meta_data_mapping,
-        )
-
-        path = Path(pdf_filepath)
-        filename = path.stem
-        
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        txt_filepath = f"output_txts/txt_{filename}_{timestamp}.txt"
-
-        
-        regex = r'([\u4e00-\u9fff])[ ]([\u4e00-\u9fff])'
-
-        updated_text = re.sub(regex, r'\1\2', text)
-        updated_text = re.sub(regex, r'\1\2', updated_text)
-
-        
-        with open(txt_filepath, "w", encoding='utf-8') as f:
-            f.write(updated_text)
-
-        return text_data, text, txt_filepath
-
-    
     @staticmethod
     def load_file(filepath, chunk_size, chunk_overlap):
         loader = TextLoader(filepath, encoding='utf-8')
