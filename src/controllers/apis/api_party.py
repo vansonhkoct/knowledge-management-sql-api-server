@@ -6,6 +6,7 @@ from tortoise.expressions import Q
 
 from src.controllers.functions.user.user import create_user
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from src.controllers.functions.user.userscope import can_manage_other_parties, ensure_can_manage_other_parties
 from src.controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
 
 from src.models.master import Party, User, Role, Permission, Category
@@ -25,6 +26,7 @@ async def fetch(
   request: Request,
   page: int = 0,
   limit: int = 10,
+  party_id: str = None,
 ):
   async def asyncjob(
     headers, user, access_token,
@@ -37,6 +39,12 @@ async def fetch(
     
     filters["is_disabled"] = False
     filters["is_deleted"] = False
+
+    if can_manage_other_parties(user):
+      if party_id not in [None, ""]:
+        filters["id"] = party_id
+    else:
+      filters["id"] = user.party_id
 
     items, total_count, tsql = await fetch_paginated(
       model=Party,
@@ -79,6 +87,9 @@ async def fetchSingle(
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
+    if not can_manage_other_parties(user):
+      filters["id"] = user.party_id
+
     item = await fetch_single(
       model=Party,
       filters=filters,
@@ -99,7 +110,7 @@ async def fetchSingle(
 
 
 @router.post("/party/create_default")
-async def party_create(
+async def party_create_default(
   request: Request,
 ):
   try:
@@ -337,6 +348,101 @@ async def party_create(
         "item": party,
       },
     }
+
+  except Exception as e:
+    stacktrace = traceback.format_exc()
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+      }
+    )
+
+
+@router.post("/party")
+async def party_create(
+  request: Request,
+):
+  try:
+    headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
+
+    ensure_can_manage_other_parties(user)
+
+    data = await request.json()
+
+    payload = {
+      "name": data["name"] if "name" in data else "",
+      "desc": data["desc"] if "desc" in data else None,
+    }
+
+    item = await Party.create(**payload)
+
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": {
+        "item": item,
+      },
+    }
+
+  except HTTPException as e:
+    raise e
+
+  except Exception as e:
+    stacktrace = traceback.format_exc()
+    raise HTTPException(
+      status_code=500,
+      detail={
+        "message": TAG_E001,
+        "error": str(e),
+        "stacktrace": stacktrace,
+      }
+    )
+
+
+@router.patch("/party")
+async def party_update(
+  request: Request,
+  id: str,
+):
+  try:
+    headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
+
+    ensure_can_manage_other_parties(user)
+
+    item = await Party.filter(
+      id=id,
+      is_disabled=False,
+      is_deleted=False,
+    ).first()
+
+    if not item:
+      raise HTTPException(status_code=404, detail="Party not found")
+
+    data = await request.json()
+
+    if "name" in data:
+      item.name = data["name"]
+
+    if "desc" in data:
+      item.desc = data["desc"]
+
+    await item.save()
+
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": {
+        "item": item,
+      },
+    }
+
+  except HTTPException as e:
+    raise e
 
   except Exception as e:
     stacktrace = traceback.format_exc()

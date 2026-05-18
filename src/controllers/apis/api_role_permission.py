@@ -10,6 +10,7 @@ from tortoise.contrib.fastapi import HTTPNotFoundError
 
 from src.controllers.functions._generic.modelutils import makeObjectID
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from src.controllers.functions.user.userscope import resolve_target_party_id
 from src.controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
 
 from src.models.master import Permission
@@ -33,18 +34,22 @@ async def fetch_role_permissions(
   request: Request,
   page: int = 0,
   limit: int = 10,
-  party_id: str = None
+  role_id: str = None,
+  party_id: str = None,
 ):
   async def asyncjob(
     headers, user, access_token,
   ):
+    target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
+
     # Calculate the offset based on the page and limit
     offset = (page) * limit
     
     # Fetch the permission items from the database using Tortoise ORM
     filters = {}
-    filters["party_id"] = (user.party_id if user != None else None)
-    filters["roles__id"] = (party_id if party_id != None else user.party_id if user != None else None)
+    filters["roles__party_id"] = target_party_id
+    if role_id is not None:
+      filters["roles__id"] = role_id
     filters["roles__is_disabled"] = False
     filters["roles__is_deleted"] = False
     filters["is_disabled"] = False
@@ -83,17 +88,20 @@ async def fetch_permission_roles(
   request: Request,
   page: int = 0,
   limit: int = 10,
-  permission_id: str = None
+  permission_id: str = None,
+  party_id: str = None,
 ):
   async def asyncjob(
     headers, user, access_token,
   ):
+    target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
+
     # Calculate the offset based on the page and limit
     offset = (page) * limit
     
     # Fetch the permission items from the database using Tortoise ORM
     filters = {}
-    filters["party_id"] = (user.party_id if user != None else None)
+    filters["party_id"] = target_party_id
     filters["permissions__id"] = (permission_id if permission_id != None else None)
     filters["permissions__is_disabled"] = False
     filters["permissions__is_deleted"] = False
@@ -144,6 +152,10 @@ async def bulk_update_mappings(
 
 
     data = await request.json()
+    target_party_id = resolve_target_party_id(
+      user=user,
+      requested_party_id=data["party_id"] if "party_id" in data else None,
+    )
     add_mappings = data["add_mappings"] if "add_mappings" in data else []
     remove_mappings = data["remove_mappings"] if "remove_mappings" in data else []
 
@@ -152,7 +164,7 @@ async def bulk_update_mappings(
     # TODO: bulk add
     for dict in add_mappings:
       permission = await Permission.filter( Q(**{ "id": dict[map_key_x] }) ).first()
-      role = await Role.filter( Q(**{ "id": dict[map_key_y] }) ).first()
+      role = await Role.filter( Q(**{ "id": dict[map_key_y], "party_id": target_party_id, "is_deleted": False }) ).first()
       if (permission != None and role != None):
         await permission.roles.add(role)
 
@@ -160,7 +172,7 @@ async def bulk_update_mappings(
     # TODO: bulk remove
     for dict in remove_mappings:
       permission = await Permission.filter( Q(**{ "id": dict[map_key_x] }) ).first()
-      role = await Role.filter( Q(**{ "id": dict[map_key_y] }) ).first()
+      role = await Role.filter( Q(**{ "id": dict[map_key_y], "party_id": target_party_id, "is_deleted": False }) ).first()
       if (permission != None and role != None):
         await permission.roles.remove(role)
 
@@ -173,6 +185,9 @@ async def bulk_update_mappings(
         "remove_mappings": remove_mappings,
       },
     }
+
+  except HTTPException as e:
+    raise e
   
   except Exception as e:
     stacktrace = traceback.format_exc()
