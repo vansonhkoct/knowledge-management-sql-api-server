@@ -1,7 +1,25 @@
+# LangChain 0.0.x modules were reorganized in 0.1.x. Import from the modern
+# package layout first, then fall back to the legacy paths for compatibility.
+try:  # LangChain >= 0.1
+    from langchain_core.documents import Document
+except ImportError:  # pragma: no cover - legacy support
+    from langchain.docstore.document import Document  # type: ignore
 
-from langchain.docstore.document import Document
-from langchain.document_loaders import TextLoader
-from langchain.text_splitter import CharacterTextSplitter
+try:  # LangChain >= 0.1
+    from langchain_community.document_loaders import TextLoader
+except ImportError:  # pragma: no cover - legacy support
+    try:
+        from langchain.document_loaders import TextLoader  # type: ignore
+    except ImportError as exc:  # pragma: no cover - explicit guidance
+        raise ImportError(
+            "TextLoader requires langchain-community>=0.1.0; please install it"
+        ) from exc
+
+try:  # Modern package split
+    from langchain_text_splitters import CharacterTextSplitter
+except ImportError:  # pragma: no cover - legacy support
+    from langchain.text_splitter import CharacterTextSplitter  # type: ignore
+from bs4 import BeautifulSoup
 
 import re
 
@@ -56,10 +74,6 @@ class DocumentUtils:
         return docs
 
 
-
-
-
-from bs4 import BeautifulSoup
 
 
 

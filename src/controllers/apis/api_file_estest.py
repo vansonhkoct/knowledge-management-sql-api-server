@@ -24,10 +24,8 @@ from src.controllers.functions.file.file import fetch_es_docs
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
 from src.controllers.functions.user.userauth_email import make_password_hash, check_password_hash
 from src.controllers.functions.ws.WebsocketConnectionManager import wsConnectionManager
-from src.controllers.functions.esbundle import es_chatllm as ESChatLLM
-from src.controllers.functions.esbundle.include.ElasticSearchDao.ESVo import ESVoDocSearch, ESVoDocInsert
-from src.controllers.functions.esbundle.include.ChatLLMDao.LLMVo import LLMVoAskQuestion
-from src.controllers.functions.esbundle.include.ConfigParams import llm_model_enable_api
+from py_eschat_llm import ESVoDocInsert, ESVoDocSearch, LLMVoAskQuestion, llm_model_enable_api
+from py_eschat_llm import es_chatllm as ESChatLLM
 
 from src.models.master import File, KMFile
 from src.models.master import Category, KMCategory

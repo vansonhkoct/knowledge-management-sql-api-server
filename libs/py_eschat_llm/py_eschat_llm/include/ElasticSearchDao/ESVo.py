@@ -6,15 +6,15 @@ class ESVoDocSearch:
     question: str | None
     query_strings: dict | None
     query_vectors: dict | None
-    knn_boosts: dict | None = None 
-    document_category: str | None = None 
+    knn_boosts: dict | None = None
+    document_category: str | None = None
     document_category_ids: list[str] | None = None
     document_tags: list[str] | None = None
-    document_file_ids: list[str] = []
+    document_file_ids: list[str]
     exclude_document_file_ids: list[str] | None = None
     k: int = 10
     num_candidates: int = 100
-    data_strategy: str = None
+    data_strategy: str | None = None
     data_portion_type: str = _constants.DATA_PORTION_TYPE_PAGE
     data_vector_query_strategy: int = 1
     must_match_document_category: bool = True
@@ -22,7 +22,7 @@ class ESVoDocSearch:
     should_match_document_title: int = 0
     should_match_document_summary: int = 0
     should_match_document_text: int = 0
-    
+
     def __init__(
         self,
         index_name: str,
@@ -33,11 +33,11 @@ class ESVoDocSearch:
         document_category: str | None = None,
         document_category_ids: list[str] | None = None,
         document_tags: list[str] | None = None,
-        document_file_ids: list[str] = [],
+        document_file_ids: list[str] | None = None,
         exclude_document_file_ids: list[str] | None = None,
         k: int = 10,
         num_candidates: int = 100,
-        data_strategy: str = None,
+        data_strategy: str | None = None,
         data_portion_type: str = _constants.DATA_PORTION_TYPE_PAGE,
         data_vector_query_strategy: int = 1,
         must_match_document_category: bool = True,
@@ -45,27 +45,27 @@ class ESVoDocSearch:
         should_match_document_title: int = 0,
         should_match_document_summary: int = 0,
         should_match_document_text: int = 0,
-        ):
-            self.index_name = index_name
-            self.question = question
-            self.query_strings = query_strings
-            self.query_vectors = query_vectors
-            self.knn_boosts = knn_boosts
-            self.document_category = document_category
-            document_category_ids = document_category_ids
-            document_tags = document_tags
-            self.document_file_ids = document_file_ids
-            self.exclude_document_file_ids = exclude_document_file_ids
-            self.k = k
-            self.num_candidates = num_candidates
-            self.data_strategy = data_strategy
-            self.data_portion_type = data_portion_type
-            self.data_vector_query_strategy = data_vector_query_strategy
-            self.must_match_document_category = must_match_document_category
-            self.should_match_document_tags = should_match_document_tags
-            self.should_match_document_title = should_match_document_title
-            self.should_match_document_summary = should_match_document_summary
-            self.should_match_document_text = should_match_document_text
+    ):
+        self.index_name = index_name
+        self.question = question
+        self.query_strings = query_strings
+        self.query_vectors = query_vectors
+        self.knn_boosts = knn_boosts
+        self.document_category = document_category
+        self.document_category_ids = document_category_ids or []
+        self.document_tags = document_tags or []
+        self.document_file_ids = document_file_ids or []
+        self.exclude_document_file_ids = exclude_document_file_ids or []
+        self.k = k
+        self.num_candidates = num_candidates
+        self.data_strategy = data_strategy
+        self.data_portion_type = data_portion_type
+        self.data_vector_query_strategy = data_vector_query_strategy
+        self.must_match_document_category = must_match_document_category
+        self.should_match_document_tags = should_match_document_tags
+        self.should_match_document_title = should_match_document_title
+        self.should_match_document_summary = should_match_document_summary
+        self.should_match_document_text = should_match_document_text
 
     def is_search_strategy_2(self):
         return (self.data_strategy == "2")
@@ -100,5 +100,5 @@ class ESVoDocInsert:
             self.text = text
             self.chunk_size = chunk_size
             self.chunk_overlap = chunk_overlap
-            self.extra_metadata = extra_metadata
+            self.extra_metadata = extra_metadata or {}
             self.is_testrun = is_testrun

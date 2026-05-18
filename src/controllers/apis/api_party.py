@@ -99,7 +99,7 @@ async def fetchSingle(
 
 
 @router.post("/party/create_default")
-async def party_create(
+async def party_create_default(
   request: Request,
 ):
   try:

@@ -32,12 +32,8 @@ class ChatLLMController:
 
     def _get_llm_model_name(
         self,
-        llm_model_name: str = "chatgpt_api",
     ):
-        if llm_model_name == "chatgpt_api":
-            return "chatgpt_api"
-
-        return llm_model_name
+        return "chatgpt_api"
 
 
 
@@ -46,7 +42,7 @@ class ChatLLMController:
         llm_model_name: str = "chatgpt_api",
     ):
         # TODO: now have to distinguish transformers version
-        llm_model_name = self._get_llm_model_name(llm_model_name=llm_model_name)
+        llm_model_name = self._get_llm_model_name()
 
         if llm_model_name not in self.llm_collections:
             if llm_model_name == "chatgpt_api":
@@ -64,7 +60,7 @@ class ChatLLMController:
     ):
         timestamp = str(time.time_ns())
         
-        llm_model_name = self._get_llm_model_name(voAskQuestion.llm_model_name)
+        llm_model_name = self._get_llm_model_name()
 
         answer_gen = self._llm_generate_answer(
             prompt = voAskQuestion.prompt,
@@ -143,7 +139,7 @@ class ChatLLMController:
                 ):
                 yield answer_result
         except Exception as e:
-            del self.llm_collections[llm_model_name]
+            del self.llm_collections[self._get_llm_model_name()]
             ConfigParams.llm_dbg("bot_ask_question", f"Cleaning LLM for Exception! {e}")
             raise e
         finally:
