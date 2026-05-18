@@ -1,6 +1,12 @@
 from fastapi import HTTPException
 
 
+def normalize_scope_id(value):
+  if value in [None, ""]:
+    return None
+  return str(value)
+
+
 def get_user_permission_codes(user):
   role = getattr(user, "role", None)
   permissions = getattr(role, "permissions", []) if role is not None else []
@@ -25,7 +31,8 @@ def ensure_can_manage_other_parties(user):
 
 
 def resolve_target_party_id(user, requested_party_id: str = None):
-  current_party_id = getattr(user, "party_id", None)
+  current_party_id = normalize_scope_id(getattr(user, "party_id", None))
+  requested_party_id = normalize_scope_id(requested_party_id)
 
   if requested_party_id in [None, ""]:
     return current_party_id
