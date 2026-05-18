@@ -7,6 +7,7 @@ from tortoise.contrib.pydantic import pydantic_model_creator
 
 from src.controllers.functions.user.user import create_user, update_user_password
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info, delete_access_token
+from src.controllers.functions.user.userscope import resolve_target_party_id
 
 from src.models.master import KMUser, User, Role, Permission, UserCredential, UserCredentialType
 
@@ -111,16 +112,24 @@ async def user_create(
 
     data = await request.json()
 
+    target_party_id = resolve_target_party_id(
+      user=user,
+      requested_party_id=data["party_id"] if "party_id" in data else None,
+    )
+
     role_id = data["role_id"] if "role_id" in data else None
-    role = await Role.filter(id=role_id).first()
+    role = await Role.filter(id=role_id, party_id=target_party_id, is_deleted=False).first()
 
     name = data["name"] if "name" in data else None
     username = data["username"] if "username" in data else ""
     password = data["password"] if "password" in data else ""
+
+    if role is None:
+      raise HTTPException(status_code=404, detail="Role not found")
     
     item = await create_user(
       name=name,
-      party_id=user.party_id,
+      party_id=target_party_id,
       role_id=role_id,
       username=username,
       password=password,
@@ -133,6 +142,9 @@ async def user_create(
         "item": item,
       },
     }
+
+  except HTTPException as e:
+    raise e
 
   except Exception as e:
     stacktrace = traceback.format_exc()
@@ -155,14 +167,14 @@ async def user_upsert_by_username(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+
+    data = await request.json()
     
-    party_id = user.party_id
+    requested_party_id = data["party_id"] if "party_id" in data else None
+    party_id = resolve_target_party_id(user=user, requested_party_id=requested_party_id)
 
 
     dbg_result = {}
-    
-    
-    data = await request.json()
     
     is_test = data["is_test"] if "is_test" in data else False
     name = data["name"] if "name" in data else ""
@@ -184,7 +196,7 @@ async def user_upsert_by_username(
     ##
     
     dbg_result["name"] = name
-    dbg_result["party_id"] = user.party_id
+    dbg_result["party_id"] = party_id
     dbg_result["username"] = username
     dbg_result["password"] = password
     dbg_result["role_code"] = role_code
@@ -195,6 +207,7 @@ async def user_upsert_by_username(
     
     existingUserItem = await User.filter(**{
       "username": username,
+      "party_id": party_id,
       "is_deleted": False,
     }).first()
 
@@ -230,7 +243,7 @@ async def user_upsert_by_username(
       if not is_test:
         newUserItem = await create_user(
           name=name,
-          party_id=user.party_id,
+          party_id=party_id,
           role_id=role.id,
           username=username,
           password=password,
@@ -273,6 +286,10 @@ async def user_upsert_by_username(
       },
     }
 
+  except HTTPException as e:
+    raise e
+
+
   except Exception as e:
     stacktrace = traceback.format_exc()
     print(e)
@@ -294,17 +311,19 @@ async def fetch(
   request: Request,
   page: int = 0,
   limit: int = 10,
+  party_id: str = None,
 ):
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
     
     # Calculate the offset based on the page and limit
     offset = (page) * limit
     
     # Fetch the category items from the database using Tortoise ORM
     filters = {}
-    filters["party_id"] = user.party_id if user != None else None
+    filters["party_id"] = target_party_id if user != None else None
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
@@ -345,6 +364,9 @@ async def fetch(
       },
     }
   
+  except HTTPException as e:
+    raise e
+
   except Exception as e:
     stacktrace = traceback.format_exc()
     raise HTTPException(
@@ -366,14 +388,16 @@ async def fetch(
 async def fetchSingle(
   request: Request,
   id: str,
+  party_id: str = None,
 ):
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
     
     filters = {}
     filters["id"] = id
-    filters["party_id"] = user.party_id if user != None else None
+    filters["party_id"] = target_party_id if user != None else None
     filters["is_disabled"] = False
     filters["is_deleted"] = False
 
@@ -389,6 +413,9 @@ async def fetchSingle(
       "message": TAG_C001,
       "data": item,
     }
+
+  except HTTPException as e:
+    raise e
   
   except Exception as e:
     stacktrace = traceback.format_exc()
@@ -408,13 +435,15 @@ async def fetchSingle(
 async def update(
   request: Request,
   id: str,
+  party_id: str = None,
 ):
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
   
     filters = {}
-    filters["party_id"] = user.party_id if user != None else None
+    filters["party_id"] = target_party_id if user != None else None
     filters["id"] = id
 
     item = (
@@ -460,6 +489,8 @@ async def update(
       },
     }
     
+  except HTTPException as e:
+    raise e
     
   except Exception as e:
     stacktrace = traceback.format_exc()
@@ -471,8 +502,6 @@ async def update(
         "stacktrace": stacktrace,
       }
     )
-    
-    
 
 
 
@@ -481,13 +510,15 @@ async def update(
 async def remove(
   request: Request,
   id: str,
+  party_id: str = None,
 ):
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
   
     filters = {}
-    filters["party_id"] = user.party_id if user != None else None
+    filters["party_id"] = target_party_id if user != None else None
     filters["id"] = id
 
     item = (
@@ -521,6 +552,8 @@ async def remove(
       },
     }
     
+  except HTTPException as e:
+    raise e
     
   except Exception as e:
     stacktrace = traceback.format_exc()
