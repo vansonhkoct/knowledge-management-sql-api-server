@@ -10,16 +10,19 @@ class WebsocketConnectionManager:
   async def connect(self, websocket: WebSocket, api_uid: str):
     print("\nwebsocket_endpoint >> ", "connect", api_uid)
     await websocket.accept()
-    self.active_connections.append(websocket)
-    self.active_connections_map[api_uid] = self.active_connections_map[api_uid] if api_uid in self.active_connections_map else websocket
+    if websocket not in self.active_connections:
+      self.active_connections.append(websocket)
+    self.active_connections_map[api_uid] = websocket
     print("\nwebsocket_endpoint >> ", "self.active_connections_map", self.active_connections_map)
 
   def disconnect(self, websocket: WebSocket, api_uid: str):
     print("\nwebsocket_endpoint >> ", "disconnect", api_uid)
-    self.active_connections.remove(websocket)
-    del self.active_connections_map[api_uid]
-    if api_uid in self.lifo_cache_map:
-      del self.lifo_cache_map[api_uid]
+    if websocket in self.active_connections:
+      self.active_connections.remove(websocket)
+
+    if self.active_connections_map.get(api_uid) is websocket:
+      del self.active_connections_map[api_uid]
+      self.lifo_cache_map.pop(api_uid, None)
 
   async def send_personal_message(self, message: str, api_uid: str, is_lifo: bool = False):
     if (api_uid in self.active_connections_map):
@@ -44,6 +47,9 @@ async def lifo_engine():
         api_uids = list(wsConnectionManager.lifo_cache_map.keys())
         for api_uid in api_uids:
             # print("websocket_endpoint >> ", "send_personal_message (lifo_engine)", api_uid)
+          if api_uid not in wsConnectionManager.active_connections_map:
+            del wsConnectionManager.lifo_cache_map[api_uid]
+            continue
             print("pm_lifo", end="", flush=True)
             await wsConnectionManager.active_connections_map[api_uid].send_text(wsConnectionManager.lifo_cache_map[api_uid])
             del wsConnectionManager.lifo_cache_map[api_uid]

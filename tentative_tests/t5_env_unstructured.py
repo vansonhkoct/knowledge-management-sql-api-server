@@ -182,14 +182,6 @@ def main():
     else:
         print("unstructured is not installed")
 
-    if dependency_exists("unstructured_inference"):
-        print(
-            "unstructured-inference version: ",
-            get_python_package_version("unstructured-inference"),
-        )
-    else:
-        print("unstructured-inference is not installed")
-
     if dependency_exists("pytesseract"):
         print(
             "pytesseract version: ",

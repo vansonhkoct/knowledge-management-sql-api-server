@@ -77,7 +77,7 @@ class DocumentUtils:
     
     
     @staticmethod
-    def load_oc_text(text, chunk_size=300, chunk_overlap=10, use_text_splitter=True, extra_metadata={}):               
+    def load_oc_text(text, chunk_size=300, chunk_overlap=10, use_text_splitter=True, extra_metadata=None):               
         # loader = TextLoader(filepath, encoding='utf-8')
         # documents = loader.load()
         documents = parse_oc_text_to_documents(text, extra_metadata)
@@ -98,9 +98,9 @@ from bs4 import BeautifulSoup
 
 def parse_oc_text_to_documents(
     content,
-    extra_metadata={},
+    extra_metadata=None,
 ):
-    
+    extra_metadata = extra_metadata or {}
     documents = []
 
     # 原始 HTML 程式碼
@@ -113,6 +113,24 @@ def parse_oc_text_to_documents(
     # print(soup.prettify())
     
     document = soup.find('oc_document')
+    if document is None:
+        page_content = (content or "").strip()
+        if not page_content:
+            return documents
+
+        documents.append(
+            Document(
+                page_content=page_content,
+                metadata={
+                    "document_file_name": extra_metadata.get("document_file_name") or "",
+                    "document_file_url": extra_metadata.get("document_file_url") or "",
+                    "page": 0,
+                    **extra_metadata,
+                },
+            )
+        )
+        return documents
+
     document_file_name = document.attrs["file_name"]
     document_file_url = document.attrs["file_url"]
     metas = soup.find_all('oc_meta')

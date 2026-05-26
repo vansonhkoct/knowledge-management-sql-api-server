@@ -122,15 +122,19 @@ def doc_insert_text_data_strat_2(
 
             document_header = "\n".join(document_header_candidates)
             document_header_vector = embedding.embed_query(document_header)
+            page_contents = [f"{doc.page_content}" for doc in docs]
+            page_contents_w_header = [f"{document_header}\n\n\n{doc.page_content}" for doc in docs]
+            page_content_vectors = embedding.embed_documents(page_contents)
+            page_content_w_header_vectors = embedding.embed_documents(page_contents_w_header)
             
             for index, doc in enumerate(docs):
                 print(f"doc_insert_text_data_strat_2 - {index}/{len(docs)} -> `{index_name}`", end="\r")
 
-                page_content = f"{doc.page_content}"
-                page_content_vector = embedding.embed_query(page_content)
+                page_content = page_contents[index]
+                page_content_vector = page_content_vectors[index]
                 
-                page_content_w_header = f"{document_header}\n\n\n{doc.page_content}"
-                page_content_w_header_vector = embedding.embed_query(page_content_w_header)
+                page_content_w_header = page_contents_w_header[index]
+                page_content_w_header_vector = page_content_w_header_vectors[index]
 
                 objApiResponse = es_client.index(
                     index=index_name,

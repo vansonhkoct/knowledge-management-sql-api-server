@@ -24,19 +24,44 @@ from src.controllers.functions.file.file import fetch_es_docs
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
 from src.controllers.functions.user.userauth_email import make_password_hash, check_password_hash
 from src.controllers.functions.ws.WebsocketConnectionManager import wsConnectionManager
-from src.controllers.functions.esbundle import es_chatllm as ESChatLLM
-from src.controllers.functions.esbundle.include.ElasticSearchDao.ESVo import ESVoDocSearch, ESVoDocInsert
-from src.controllers.functions.esbundle.include.ChatLLMDao.LLMVo import LLMVoAskQuestion
-from src.controllers.functions.esbundle.include.ConfigParams import llm_model_enable_api
 
 from src.models.master import File, KMFile
 from src.models.master import Category, KMCategory
 from src.models.master import Log
 
 
+ESChatLLM = None
+ESVoDocSearch = None
+ESVoDocInsert = None
+LLMVoAskQuestion = None
+llm_model_enable_api = None
+_nltk_bootstrapped = False
 
-nltk.download('punkt_tab')
-nltk.download('averaged_perceptron_tagger_eng')
+
+def _bootstrap_file_estest_dependencies():
+  global ESChatLLM
+  global ESVoDocSearch
+  global ESVoDocInsert
+  global LLMVoAskQuestion
+  global llm_model_enable_api
+  global _nltk_bootstrapped
+
+  if ESChatLLM is None:
+    from src.controllers.functions.esbundle import es_chatllm as _ESChatLLM
+    from src.controllers.functions.esbundle.include.ElasticSearchDao.ESVo import ESVoDocSearch as _ESVoDocSearch, ESVoDocInsert as _ESVoDocInsert
+    from src.controllers.functions.esbundle.include.ChatLLMDao.LLMVo import LLMVoAskQuestion as _LLMVoAskQuestion
+    from src.controllers.functions.esbundle.include.ConfigParams import llm_model_enable_api as _llm_model_enable_api
+
+    ESChatLLM = _ESChatLLM
+    ESVoDocSearch = _ESVoDocSearch
+    ESVoDocInsert = _ESVoDocInsert
+    LLMVoAskQuestion = _LLMVoAskQuestion
+    llm_model_enable_api = _llm_model_enable_api
+
+  if not _nltk_bootstrapped:
+    nltk.download('punkt_tab', quiet=True)
+    nltk.download('averaged_perceptron_tagger_eng', quiet=True)
+    _nltk_bootstrapped = True
 
 
 router = APIRouter(prefix="/api/v1")
@@ -215,6 +240,7 @@ async def __reparse_file_as_docs(
   is_testrun,
   accept_non_standard_chars: bool = False,
 ):
+  _bootstrap_file_estest_dependencies()
   print("\n\n==== PART 1 ===")
 
   
@@ -429,6 +455,7 @@ async def test_reparse_all_files_as_docs(
 async def test_search_by_multi_vector_query_strings(
   request: Request,
 ):
+  _bootstrap_file_estest_dependencies()
   data = await request.json()
 
   vo_es = ESVoDocSearch(
@@ -467,6 +494,7 @@ async def test_search_by_multi_vector_query_strings(
 async def test_get_es_doc_ids_by_document_file_id(
   request: Request,
 ):
+  _bootstrap_file_estest_dependencies()
   data = await request.json()
 
   result = await ESChatLLM.bot_es_get_document_es_ids_by_document_file_id(
@@ -499,6 +527,7 @@ async def test_get_es_doc_ids_by_document_file_id(
 async def test_get_es_doc_by_id(
   request: Request,
 ):
+  _bootstrap_file_estest_dependencies()
   data = await request.json()
 
   result = await ESChatLLM.bot_es_get_document_by_id(
@@ -520,6 +549,7 @@ async def test_get_es_doc_by_id(
 async def test_bot_es_doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk(
   request: Request,
 ):
+  _bootstrap_file_estest_dependencies()
   data = await request.json()
 
   result = await ESChatLLM.bot_es_doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk(
@@ -553,11 +583,9 @@ async def test_llm_ask_question(
       async_gen = generator_test_bot_llm_ask_question(request=request)
       async_gen_response = None
 
-      try:
-        async for response in async_gen:
-          print(response)
-      except StopAsyncIteration as e:
-        async_gen_response = e.value
+      async for response in async_gen:
+        async_gen_response = response
+        break
 
       return async_gen_response
 
@@ -583,6 +611,7 @@ async def generator_test_bot_llm_ask_question(
   request: Request,
   is_streaming: bool = False,
 ):
+  _bootstrap_file_estest_dependencies()
   if not llm_model_enable_api:
     raise HTTPException(
       status_code=400,
@@ -593,6 +622,8 @@ async def generator_test_bot_llm_ask_question(
     )
   
   data = await request.json()
+  retrieval_enabled = data["retrieval_enabled"] if "retrieval_enabled" in data else True
+  conversation_history = data["history"] if "history" in data else []
     
   global is_busy
 
@@ -620,32 +651,39 @@ async def generator_test_bot_llm_ask_question(
 
 
   try:
-    vo_es = ESVoDocSearch(
-      index_name = data["index_name"],
-      question = data["question"] if "question" in data else None,
-      query_strings = data["query_strings"] if "query_strings" in data else None,
-      query_vectors = data["query_vectors"] if "query_vectors" in data else None,
-      knn_boosts = data["knn_boosts"] if "knn_boosts" in data else None,
-      document_category = data["document_category"],
-      document_category_ids = data["document_category_ids"] if "document_category_ids" in data else None,
-      document_tags = data["document_tags"] if "document_tags" in data else None,
-      document_file_ids = data["document_file_ids"] if "document_file_ids" in data else [],
-      exclude_document_file_ids = data["exclude_document_file_ids"] if "exclude_document_file_ids" in data else None,
-      k = data["k"] if "k" in data else 10,
-      num_candidates = data["num_candidates"] if "num_candidates" in data else 100,
-      data_strategy = data["data_strategy"] if "data_strategy" in data else None,
-      data_portion_type = data["data_portion_type"] if "data_portion_type" in data else None,
-      data_vector_query_strategy = data["data_vector_query_strategy"] if "data_vector_query_strategy" in data else 1,
-      must_match_document_category = data["must_match_document_category"] if "must_match_document_category" in data else True,
-      should_match_document_tags = data["should_match_document_tags"] if "should_match_document_tags" in data else 0,
-      should_match_document_title = data["should_match_document_title"] if "should_match_document_title" in data else 0,
-      should_match_document_summary = data["should_match_document_summary"] if "should_match_document_summary" in data else 0,
-      should_match_document_text = data["should_match_document_text"] if "should_match_document_text" in data else 0,
-    )
+    vo_es = None
+    es_result = []
+    filtered_es_result = []
+    group_filtered_es_result = {}
+    aggregated_context = []
 
-    es_result = await ESChatLLM.bot_es_search_multi_vector(
-      vo=vo_es,
-    )
+    if retrieval_enabled:
+      vo_es = ESVoDocSearch(
+        index_name = data["index_name"],
+        question = data["question"] if "question" in data else None,
+        query_strings = data["query_strings"] if "query_strings" in data else None,
+        query_vectors = data["query_vectors"] if "query_vectors" in data else None,
+        knn_boosts = data["knn_boosts"] if "knn_boosts" in data else None,
+        document_category = data["document_category"] if "document_category" in data else "",
+        document_category_ids = data["document_category_ids"] if "document_category_ids" in data else None,
+        document_tags = data["document_tags"] if "document_tags" in data else None,
+        document_file_ids = data["document_file_ids"] if "document_file_ids" in data else [],
+        exclude_document_file_ids = data["exclude_document_file_ids"] if "exclude_document_file_ids" in data else None,
+        k = data["k"] if "k" in data else 10,
+        num_candidates = data["num_candidates"] if "num_candidates" in data else 100,
+        data_strategy = data["data_strategy"] if "data_strategy" in data else None,
+        data_portion_type = data["data_portion_type"] if "data_portion_type" in data else None,
+        data_vector_query_strategy = data["data_vector_query_strategy"] if "data_vector_query_strategy" in data else 1,
+        must_match_document_category = data["must_match_document_category"] if "must_match_document_category" in data else True,
+        should_match_document_tags = data["should_match_document_tags"] if "should_match_document_tags" in data else 0,
+        should_match_document_title = data["should_match_document_title"] if "should_match_document_title" in data else 0,
+        should_match_document_summary = data["should_match_document_summary"] if "should_match_document_summary" in data else 0,
+        should_match_document_text = data["should_match_document_text"] if "should_match_document_text" in data else 0,
+      )
+
+      es_result = await ESChatLLM.bot_es_search_multi_vector(
+        vo=vo_es,
+      )
 
 
     def do_filter_es_result_item(it):
@@ -662,22 +700,18 @@ async def generator_test_bot_llm_ask_question(
         return True
     
 
-    filtered_es_result = [ it for it in es_result if ( do_filter_es_result_item(it) )]
-    
-    
-    # Group Using a dictionary-based approach
-    group_filtered_es_result = {}
-    for it in filtered_es_result:
+      filtered_es_result = [ it for it in es_result if ( do_filter_es_result_item(it) )]
+      
+      
+      # Group Using a dictionary-based approach
+      for it in filtered_es_result:
         if it["file_id"] not in group_filtered_es_result:
-            group_filtered_es_result[it["file_id"]] = []
+          group_filtered_es_result[it["file_id"]] = []
 
         group_filtered_es_result[it["file_id"]].append(it)
-
-    aggregated_context = []
-  
-    for key_file_id in group_filtered_es_result.keys():
-      # print("KEY", key_file_id, group_filtered_es_result[key_file_id])
-      document_header = f"""
+    
+      for key_file_id in group_filtered_es_result.keys():
+        document_header = f"""
 
 
 ---------
@@ -688,9 +722,9 @@ async def generator_test_bot_llm_ask_question(
 """
 
 
-      document_footer = '\n\n----------\n\n'
-      document_content_array = [ it["content"] for it in group_filtered_es_result[key_file_id] ]
-      document_content = (
+        document_footer = '\n\n----------\n\n'
+        document_content_array = [ it["content"] for it in group_filtered_es_result[key_file_id] ]
+        document_content = (
 """
 
 ...
@@ -698,7 +732,7 @@ async def generator_test_bot_llm_ask_question(
 """.join(document_content_array)
 
 )
-      document_content = f"""
+        document_content = f"""
 
 ...
 
@@ -708,19 +742,20 @@ async def generator_test_bot_llm_ask_question(
 
 """
 
-      aggregated_context.append(document_header)
-      aggregated_context.append(document_content)
-      aggregated_context.append(document_footer)
+        aggregated_context.append(document_header)
+        aggregated_context.append(document_content)
+        aggregated_context.append(document_footer)
     
-
-    prompt = "".join([
-      "以下是系統提供的資料段落：\n",
-      "".join(aggregated_context),
-      # "\n\n根據上述已知信息，簡潔和專業的來回答用户的問題。如果無法從中得到答案，請説 “根據已知信息無法回答該問題” 或 “沒有提供足夠的相關信息”，不允許在答案中添加其他任何成分，答案請使用中文。 以下是問題： 根據已知信息，",
-      "\n\n===================\n\n請閱讀上述文件段落，單純依靠系統所提供的信息 (不必考慮信息以外的知識)，並使用中文（不要使用其他語言）告訴我：",
-      data["question"],
-      "\n\n===================\n\n如果無法從系統提供的資料段落和我的問題匹配，請嘗試參考資料段落，從而建議我可以嘗試詢問的問題。"
-    ])
+    if retrieval_enabled:
+      prompt = "".join([
+        "以下是系統提供的資料段落：\n",
+        "".join(aggregated_context),
+        "\n\n===================\n\n請閱讀上述文件段落，單純依靠系統所提供的信息 (不必考慮信息以外的知識)，並使用中文（不要使用其他語言）告訴我：",
+        data["question"],
+        "\n\n===================\n\n如果無法從系統提供的資料段落和我的問題匹配，請嘗試參考資料段落，從而建議我可以嘗試詢問的問題。"
+      ])
+    else:
+      prompt = data["question"]
     
     suggested_token = 8192
     prompt_token = math.ceil( len(prompt) * 1.6 )
@@ -736,7 +771,8 @@ async def generator_test_bot_llm_ask_question(
 
     vo_llm = LLMVoAskQuestion(
       prompt = prompt,
-      history = [],
+      history = conversation_history,
+      party_id = data["index_name"],
       llm_model_name = data["llm_model_name"] if "llm_model_name" in data else None,
       llm_max_token = llm_max_token,
       llm_temperature = data["llm_temperature"] if "llm_temperature" in data else 0.03,
@@ -748,15 +784,9 @@ async def generator_test_bot_llm_ask_question(
     )
     
     if not (data["skip_llm"] if "skip_llm" in data else False):
-      async for _llm_answer_result, stream_result in ESChatLLM.bot_llm_ask_question(
+      llm_answer_result = await ESChatLLM.bot_llm_ask_question(
         vo=vo_llm,
-      ):
-        if is_streaming:
-          if stream_result is not None:
-            yield stream_result
-          
-        if _llm_answer_result is not None:
-          llm_answer_result = _llm_answer_result
+      )
 
     else:
       llm_answer_result = None
@@ -765,8 +795,8 @@ async def generator_test_bot_llm_ask_question(
 
 
     add_log_apillm(
-      question = vo_es.question,
-      index_name = vo_es.index_name,
+      question = data["question"] if "question" in data else None,
+      index_name = data["index_name"],
       prompt = prompt,
       llm_answer_result = llm_answer_result,
       suggested_token = suggested_token,
@@ -787,6 +817,7 @@ async def generator_test_bot_llm_ask_question(
       "prompt_token": prompt_token,
       "input_llm_max_token": input_llm_max_token,
       "prompt": prompt,
+      "retrieval_enabled": retrieval_enabled,
       "group_filtered_es_result_count": len(group_filtered_es_result),
       "filtered_es_result_count": len(filtered_es_result),
       "es_result_count": len(es_result),
@@ -796,9 +827,11 @@ async def generator_test_bot_llm_ask_question(
     }
 
     if is_streaming:
-      yield final_res
+      yield f"data: {json.dumps(final_res, ensure_ascii=False, default=str)}\n\n"
     else:
-      raise StopAsyncIteration(final_res)
+      yield final_res
+
+    return
 
 
     

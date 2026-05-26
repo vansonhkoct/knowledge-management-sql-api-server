@@ -3,7 +3,6 @@
 from unstructured.chunking.title import chunk_by_title
 from unstructured.documents.elements import DataSourceMetadata
 from unstructured.partition.json import partition_json
-from sentence_transformers import SentenceTransformer
 from unstructured.partition.pdf import partition_pdf
 from unstructured.staging.base import elements_to_json
 from unstructured.partition.auto import partition

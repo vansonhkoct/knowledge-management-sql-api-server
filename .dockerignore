@@ -1,0 +1,16 @@
+.git
+.gitignore
+.DS_Store
+.env
+___.env
+.pytest_cache
+.vscode
+__pycache__
+*.pyc
+venv
+.venv
+env
+upload
+libs
+docs
+tentative_tests

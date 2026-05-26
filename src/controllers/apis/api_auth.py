@@ -14,7 +14,7 @@ from src.controllers.functions.user.userauth_session import create_new_access_to
 from src.controllers.functions.user.userauth_session import create_new_access_token_and_refresh_token_by_user
 from src.controllers.functions.user.userauth_session import delete_access_token
 
-from src.models.master import KMUser
+from src.controllers.functions.user.user_serializer import serialize_user
 
 router = APIRouter(prefix="/api/v1")
 
@@ -51,7 +51,7 @@ async def auth_login(
       raise HTTPException(status_code=404, detail="User not found")
 
     
-    kmUser = await KMUser.from_tortoise_orm(user)
+    kmUser = await serialize_user(user)
     
     userSession = await create_new_access_token_and_refresh_token_by_user(
       user=user,
@@ -69,6 +69,9 @@ async def auth_login(
         },
       },
     }
+
+  except HTTPException as e:
+    raise e
 
   except Exception as e:
     stacktrace = traceback.format_exc()

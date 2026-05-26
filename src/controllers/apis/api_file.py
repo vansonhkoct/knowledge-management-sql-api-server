@@ -13,11 +13,19 @@ from src.controllers.functions.file.file import bootstrapImportESBundle
 from src.controllers.functions.file.file import create_entry_file
 from src.controllers.functions.file.file import on_update_file
 from src.controllers.functions.file.file import on_remove_file
-from src.controllers.functions.file.file import on_upload_file
 from src.controllers.functions.file.file import fetch_es_docs
+from src.controllers.functions.file_ingest import FILE_STATUS_ERROR
+from src.controllers.functions.file_ingest import FILE_STATUS_INDEXED
+from src.controllers.functions.file_ingest import FILE_STATUS_QUEUED
+from src.controllers.functions.file_ingest import FILE_STATUS_UPLOADING
+from src.controllers.functions.file_ingest import create_file_process_log
+from src.controllers.functions.file_ingest import enqueue_file_ingest
+from src.controllers.functions.file_ingest import update_file_status
+from src.controllers.functions.file_ingest import serialize_file_process_log
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
 
 from src.models.master import File, KMFile
+from src.models.master import FileProcessLog
 from src.models.master import Category, KMCategory
 
 router = APIRouter(prefix="/api/v1")
@@ -127,7 +135,6 @@ async def upload_and_create_file_from_file(
   file: UploadFile = FastAPIFile(),
 ):
   try:
-    # Save the uploaded file to the local "./upload" folder
     file_ref, filebytes = await upload_file_write_to_upload_folder(
       file=file,
       alias=alias,
@@ -137,37 +144,64 @@ async def upload_and_create_file_from_file(
       uploadFileRecord = file_ref,
       party_id=party_id,
       category_id=category_id,
+      status=FILE_STATUS_UPLOADING,
+      latest_process_message="Saving uploaded file",
+      document_tags=document_tags,
+      document_title=document_title,
+      document_summary=document_summary,
+      document_remarks=document_remarks,
+      document_userdata=document_userdata,
     )
-    
-    es_doc_ids = []
-    
-    
-    with open(file_ref.filepath, "rb") as r_file:
-      docs, es_doc_ids, index_name = await on_upload_file(
-        party_id=party_id,
-        filename=file_ref.filename,
-        file_id=item.id,
-        file=r_file,
-        category_id=category_id,
-        document_tags=document_tags,
-        document_title=document_title,
-        document_summary=document_summary,
-        document_remarks=document_remarks,
-        document_userdata=document_userdata,
+
+    await create_file_process_log(
+      item,
+      stage="UPLOAD",
+      status="SUCCESS",
+      message="File saved to upload storage",
+      details_json={
+        "filename": file_ref.filename,
+        "size_bytes": file_ref.filesize,
+      },
+    )
+
+    try:
+      await enqueue_file_ingest(item.id)
+      await update_file_status(
+        item,
+        FILE_STATUS_QUEUED,
+        latest_process_message="Queued for indexing",
+        clear_ingest_error=True,
       )
-    
-    
-    item.es_doc_ids = ",".join(es_doc_ids if es_doc_ids is not None else [])
-    await item.save()
+      await create_file_process_log(
+        item,
+        stage="QUEUE",
+        status="QUEUED",
+        message="File queued for indexing",
+      )
+    except Exception as queue_error:
+      stacktrace = traceback.format_exc()
+      await update_file_status(
+        item,
+        FILE_STATUS_ERROR,
+        latest_process_message=str(queue_error),
+        ingest_error=stacktrace,
+      )
+      await create_file_process_log(
+        item,
+        stage="QUEUE",
+        status="ERROR",
+        message=str(queue_error),
+        details_json={
+          "stacktrace": stacktrace,
+        },
+      )
+      raise queue_error
 
     return {
       "success": True,
       "message": TAG_C001,
       "data": {
         "item": item,
-        "es_doc_ids": es_doc_ids,
-        "index_name": index_name,
-        "docs": docs,
       },
     }
 
@@ -189,7 +223,6 @@ async def upload_and_create_file_from_plaintext(
   plaintext: str = None,
 ):
   try:
-    # Obtain file_ref from plaintext
     file_ref, filebytes = await make_file_ref_from_plaintext(
       plaintext=plaintext,
       alias=alias,
@@ -199,34 +232,64 @@ async def upload_and_create_file_from_plaintext(
       uploadFileRecord = file_ref,
       party_id=party_id,
       category_id=category_id,
-    )
-    
-    es_doc_ids = []
-    
-    docs, es_doc_ids, index_name = await on_upload_file(
-      party_id=party_id,
-      filename=file_ref.filename,
-      file_id=item.id,
-      plaintext=plaintext,
-      category_id=category_id,
+      status=FILE_STATUS_UPLOADING,
+      latest_process_message="Saving plaintext upload",
       document_tags=document_tags,
       document_title=document_title,
       document_summary=document_summary,
       document_remarks=document_remarks,
       document_userdata=document_userdata,
     )
-    
-    item.es_doc_ids = ",".join(es_doc_ids if es_doc_ids is not None else [])
-    await item.save()
+
+    await create_file_process_log(
+      item,
+      stage="UPLOAD",
+      status="SUCCESS",
+      message="Plaintext saved to upload storage",
+      details_json={
+        "filename": file_ref.filename,
+        "size_bytes": file_ref.filesize,
+      },
+    )
+
+    try:
+      await enqueue_file_ingest(item.id)
+      await update_file_status(
+        item,
+        FILE_STATUS_QUEUED,
+        latest_process_message="Queued for indexing",
+        clear_ingest_error=True,
+      )
+      await create_file_process_log(
+        item,
+        stage="QUEUE",
+        status="QUEUED",
+        message="File queued for indexing",
+      )
+    except Exception as queue_error:
+      stacktrace = traceback.format_exc()
+      await update_file_status(
+        item,
+        FILE_STATUS_ERROR,
+        latest_process_message=str(queue_error),
+        ingest_error=stacktrace,
+      )
+      await create_file_process_log(
+        item,
+        stage="QUEUE",
+        status="ERROR",
+        message=str(queue_error),
+        details_json={
+          "stacktrace": stacktrace,
+        },
+      )
+      raise queue_error
 
     return {
       "success": True,
       "message": TAG_C001,
       "data": {
         "item": item,
-        "es_doc_ids": es_doc_ids,
-        "index_name": index_name,
-        "docs": docs,
       },
     }
 
@@ -318,6 +381,7 @@ async def fetchSingle(
   id: str,
   party_id: str = None,
   is_fetch_es_docs: int = 0,
+  is_fetch_process_logs: int = 0,
 ):
   try:
     headers = request.headers
@@ -337,12 +401,16 @@ async def fetchSingle(
     )
     
     es_docs = []
+    process_logs = []
     if (item != None):
       if (is_fetch_es_docs == 1):
         es_docs = await fetch_es_docs(
           party_id=item.party_id,
           file=item,
         )
+      if (is_fetch_process_logs == 1):
+        process_logs_raw = await FileProcessLog.filter(file_id=item.id).order_by("-created_at")
+        process_logs = [await serialize_file_process_log(log_item) for log_item in process_logs_raw]
     
 
     return {
@@ -351,6 +419,7 @@ async def fetchSingle(
       "data": {
         "item": item,
         "es_docs": es_docs,
+        "process_logs": process_logs,
       },
     }
   
@@ -391,13 +460,21 @@ async def remove(
     if not item:
       raise HTTPException(status_code=404, detail="File not found")
 
-    await on_remove_file(
-      party_id=user.party_id,
-      file=item,
-    )
+    if item.status == FILE_STATUS_INDEXED:
+      await on_remove_file(
+        party_id=user.party_id,
+        file=item,
+      )
 
     item.is_deleted = True
     await item.save()
+
+    await create_file_process_log(
+      item,
+      stage="DELETE",
+      status="SUCCESS",
+      message="File deleted",
+    )
     
     is_file_deleted = await remove_file_from_upload_folder(
       filename=item.filename,
@@ -453,12 +530,12 @@ async def update(
 
     if "category_id" in data:
       item.category_id = data["category_id"]
-      
-      await on_update_file(
-        party_id=user.party_id,
-        file=item,
-        category_id=item.category_id
-      )
+      if item.status == FILE_STATUS_INDEXED:
+        await on_update_file(
+          party_id=user.party_id,
+          file=item,
+          category_id=item.category_id
+        )
 
     if "alias" in data:
       item.alias = data["alias"]

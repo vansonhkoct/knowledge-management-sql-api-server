@@ -6,40 +6,107 @@ from .include.ElasticSearchController import ElasticSearchController
 from .include.ChatLLMController import ChatLLMController
 from .include.ElasticSearchDao.ESVo import ESVoDocSearch, ESVoDocInsert
 from .include.ChatLLMDao.LLMVo import LLMVoAskQuestion
+from .include.ElasticSearchDao import _constants
+from src.schemas.master import Party, AIModelEndpoint
 
 
 import asyncio
 
 
-embedding_instance: EmbeddingsBundle = None
-es_controller: ElasticSearchController = None
-llm_controller: ChatLLMController = None
-
-        
-# Init ChatLLM Controller
-def _bot_initialize_chatllm():
-
-    global llm_controller
-
-    llm_controller = llm_controller if llm_controller is not None else ChatLLMController()
+MODEL_TYPE_LLM = "LLM"
+MODEL_TYPE_EMBEDDING = "EMBEDDING"
 
 
+async def _resolve_party(party_id: str):
+    party = await Party.filter(
+        id=party_id,
+        is_disabled=False,
+        is_deleted=False,
+    ).first()
+
+    if party is None:
+        raise ValueError(f"Party not found for model resolution: {party_id}")
+
+    await party.fetch_related("default_llm_model", "default_embedding_model")
+    return party
 
 
-# Init ElasticSearch
-def _bot_initialize_es():
+async def _resolve_model_endpoint(
+    party_id: str,
+    model_type: str,
+    preferred_model_name: str | None = None,
+):
+    party = await _resolve_party(party_id)
 
-    global embedding_instance
-    global es_controller
-    
-    embedding_instance = embedding_instance if embedding_instance is not None else EmbeddingsBundle(
-        model_path = ConfigParams.embedding_model, 
-        model_path_legacy = ConfigParams.embedding_model_legacy,
+    if model_type == MODEL_TYPE_LLM and preferred_model_name not in [None, ""]:
+        preferred = await AIModelEndpoint.filter(
+            is_disabled=False,
+            is_deleted=False,
+            model_type=MODEL_TYPE_LLM,
+            model_name=preferred_model_name,
+        ).first()
+
+        if preferred is not None:
+            return preferred
+
+        preferred = await AIModelEndpoint.filter(
+            is_disabled=False,
+            is_deleted=False,
+            model_type=MODEL_TYPE_LLM,
+            name=preferred_model_name,
+        ).first()
+
+        if preferred is not None:
+            return preferred
+
+        preferred = await AIModelEndpoint.filter(
+            is_disabled=False,
+            is_deleted=False,
+            model_type=MODEL_TYPE_LLM,
+            id=preferred_model_name,
+        ).first()
+
+        if preferred is not None:
+            return preferred
+
+    endpoint = party.default_llm_model if model_type == MODEL_TYPE_LLM else party.default_embedding_model
+    if endpoint is None:
+        endpoint = await AIModelEndpoint.filter(
+            is_disabled=False,
+            is_deleted=False,
+            model_type=model_type,
+        ).order_by("created_at").first()
+
+    if endpoint is None:
+        raise ValueError(f"Party {party_id} is missing a default {model_type.lower()} model")
+
+    return endpoint
+
+
+def _build_embedding_bundle(endpoint: AIModelEndpoint):
+    return EmbeddingsBundle(
+        base_url=endpoint.base_url,
+        model_name=endpoint.model_name,
+        api_key=endpoint.api_key,
+        api_path=endpoint.api_path,
+        headers_json=endpoint.headers_json,
+        options_json=endpoint.options_json,
     )
-    
-    es_controller = es_controller if es_controller is not None else ElasticSearchController(
-        embedding = embedding_instance, 
+
+
+def _build_llm_controller(endpoint: AIModelEndpoint):
+    return ChatLLMController(
+        base_url=endpoint.base_url,
+        model_name=endpoint.model_name,
+        api_key=endpoint.api_key,
+        api_path=endpoint.api_path,
+        headers_json=endpoint.headers_json,
+        options_json=endpoint.options_json,
     )
+
+
+def _build_es_controller(embedding=None):
+    return ElasticSearchController(embedding=embedding)
 
 
 
@@ -51,7 +118,13 @@ def _bot_initialize_es():
 async def bot_es_add_document(
     vo: ESVoDocInsert,
 ):
-    _bot_initialize_es()
+    embedding_endpoint = await _resolve_model_endpoint(
+        party_id=vo.index_name,
+        model_type=MODEL_TYPE_EMBEDDING,
+    )
+    es_controller = _build_es_controller(
+        embedding=_build_embedding_bundle(embedding_endpoint),
+    )
     
     def fn():
         docs, ids, index_name = es_controller.doc_insert_text_data_strat_2(
@@ -76,7 +149,7 @@ async def bot_es_update_document_metadata(
     document_tags,
     document_userdata,
 ):
-    _bot_initialize_es()
+    es_controller = _build_es_controller()
     
     def fn():
         res = es_controller.doc_update_document_metadata(
@@ -103,7 +176,7 @@ async def bot_es_get_document_by_id(
     index_name, 
     id,
 ):
-    _bot_initialize_es()
+    es_controller = _build_es_controller()
     
     def fn():
         res = es_controller.doc_get_document_by_id(
@@ -121,7 +194,7 @@ async def bot_es_get_document_es_ids_by_document_file_id(
     document_file_id,
     data_strategy,
 ):
-    _bot_initialize_es()
+    es_controller = _build_es_controller()
     
     def fn():
         res = es_controller.doc_get_document_es_ids_by_document_file_id(
@@ -146,7 +219,7 @@ async def bot_es_delete_document_by_id(
     index_name, 
     id,
 ):
-    _bot_initialize_es()
+    es_controller = _build_es_controller()
     
     def fn():
         res = es_controller.doc_delete_document_by_id(
@@ -169,7 +242,13 @@ async def bot_es_delete_document_by_id(
 async def bot_es_search_multi_vector(
     vo: ESVoDocSearch,
 ):
-    _bot_initialize_es()
+    embedding_endpoint = await _resolve_model_endpoint(
+        party_id=vo.index_name,
+        model_type=MODEL_TYPE_EMBEDDING,
+    )
+    es_controller = _build_es_controller(
+        embedding=_build_embedding_bundle(embedding_endpoint),
+    )
     
     def fn():
         res = es_controller.doc_search_multi_vector(
@@ -189,13 +268,104 @@ async def bot_es_search_multi_vector(
 async def bot_es_doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk(
     index_name: str,
 ):
-    _bot_initialize_es()
+    es_controller = _build_es_controller()
     
     def fn():
         res = es_controller.doc_migrate_update_all_data_without_data_strategy_to_become_1_chunk(
             index_name=index_name,
         )
         return res
+
+    res = await asyncio.get_running_loop().run_in_executor(None, fn)
+    return res
+
+
+async def bot_es_reembed_index(
+    index_name: str,
+):
+    embedding_endpoint = await _resolve_model_endpoint(
+        party_id=index_name,
+        model_type=MODEL_TYPE_EMBEDDING,
+    )
+    embedding = _build_embedding_bundle(embedding_endpoint)
+    es_controller = _build_es_controller(embedding=embedding)
+
+    def fn():
+        total = 0
+        updated = 0
+        target_index_name = f"{_constants.ES_INDEX_ACTIVE_GLOBAL_PREFIX}{index_name}"
+        scroll_id = None
+
+        response = es_controller.es_client.search(
+            index=target_index_name,
+            body={
+                "query": {
+                    "match_all": {},
+                },
+                "size": 250,
+            },
+            scroll="2m",
+        )
+
+        try:
+            while True:
+                body = response.body
+                scroll_id = body.get("_scroll_id")
+                hits = body.get("hits", {}).get("hits", [])
+
+                if len(hits) == 0:
+                    break
+
+                for hit in hits:
+                    total += 1
+                    source = hit.get("_source", {})
+                    doc = {}
+
+                    if "document_header" in source:
+                        doc["document_header_vector"] = embedding.embed_query(source.get("document_header") or "")
+
+                    if "page_content" in source:
+                        doc["page_content_vector"] = embedding.embed_query(source.get("page_content") or "")
+
+                    if "page_content_w_header" in source:
+                        doc["page_content_w_header_vector"] = embedding.embed_query(source.get("page_content_w_header") or "")
+
+                    if "text" in source:
+                        doc["vector"] = embedding.embed_query(source.get("text") or "")
+
+                    if len(doc.keys()) == 0:
+                        continue
+
+                    es_controller.es_client.update(
+                        index=target_index_name,
+                        id=hit.get("_id"),
+                        body={
+                            "doc": doc,
+                        },
+                    )
+                    updated += 1
+
+                if not scroll_id:
+                    break
+
+                response = es_controller.es_client.scroll(
+                    scroll_id=scroll_id,
+                    scroll="2m",
+                )
+        finally:
+            if scroll_id:
+                try:
+                    es_controller.es_client.clear_scroll(scroll_id=scroll_id)
+                except Exception:
+                    pass
+
+        return {
+            "index_name": index_name,
+            "updated_documents": updated,
+            "visited_documents": total,
+            "embedding_model_id": str(embedding_endpoint.id),
+            "embedding_model_name": embedding_endpoint.model_name,
+        }
 
     res = await asyncio.get_running_loop().run_in_executor(None, fn)
     return res
@@ -211,7 +381,12 @@ async def bot_es_doc_migrate_update_all_data_without_data_strategy_to_become_1_c
 async def bot_llm_ask_question(
     vo: LLMVoAskQuestion
 ):
-    _bot_initialize_chatllm()
+    llm_endpoint = await _resolve_model_endpoint(
+        party_id=vo.party_id,
+        model_type=MODEL_TYPE_LLM,
+        preferred_model_name=vo.llm_model_name,
+    )
+    llm_controller = _build_llm_controller(llm_endpoint)
     
     def fn():
         res = llm_controller.bot_ask_question(
@@ -230,7 +405,10 @@ async def bot_llm_ask_question(
 async def bot_llm_stop_answering(
     api_uid: str | None = None,
 ):
-    _bot_initialize_chatllm()
+    llm_controller = ChatLLMController(
+        base_url="",
+        model_name="",
+    )
     
     def fn():
         llm_controller.bot_stop_answering(

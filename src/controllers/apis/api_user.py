@@ -3,13 +3,13 @@ from fastapi import APIRouter, File, UploadFile, Form, Request
 from fastapi import HTTPException
 from typing import Annotated
 from tortoise.expressions import Q
-from tortoise.contrib.pydantic import pydantic_model_creator
 
 from src.controllers.functions.user.user import create_user, update_user_password
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info, delete_access_token
+from src.controllers.functions.user.user_serializer import serialize_user
 from src.controllers.functions.user.userscope import resolve_target_party_id
 
-from src.models.master import KMUser, User, Role, Permission, UserCredential, UserCredentialType
+from src.models.master import User, Role, Permission, UserCredential, UserCredentialType
 
 
 router = APIRouter(prefix="/api/v1")
@@ -40,7 +40,7 @@ async def user_me(
   #   # ]
   # )
   
-  item = await KMUser.from_tortoise_orm(user)
+  item = await serialize_user(user)
 
   try:
     return {
@@ -347,7 +347,7 @@ async def fetch(
     )
 
     for k in range(len(items)):
-      items[k] = await KMUser.from_tortoise_orm(items[k]) 
+      items[k] = await serialize_user(items[k]) 
 
     return {
       "success": True,

@@ -28,6 +28,13 @@ async def create_entry_file(
   uploadFileRecord: UploadFileRecord = None,
   party_id: str = None,
   category_id: str = None,
+  status: str = None,
+  latest_process_message: str = None,
+  document_tags: list[str] = None,
+  document_title: str = None,
+  document_summary: str = None,
+  document_remarks: str = None,
+  document_userdata = None,
 ):
   new_entry = await File.create(
     alias = uploadFileRecord.alias,
@@ -36,6 +43,13 @@ async def create_entry_file(
     size_bytes = uploadFileRecord.filesize,
     category_id = category_id,
     party_id = party_id,
+    status = status,
+    latest_process_message = latest_process_message,
+    document_tags_json = document_tags,
+    document_title = document_title,
+    document_summary = document_summary,
+    document_remarks = document_remarks,
+    document_userdata_json = document_userdata,
   )
 
   return new_entry
@@ -74,6 +88,10 @@ async def on_upload_file(
     index_name = str(party_id),
     text = text,
     extra_metadata = {
+        "document_file_id": str(file_id) if file_id is not None else "",
+        "document_category": str(category_id) if category_id is not None else "",
+        "document_file_name": filename or "",
+        "document_file_url": filename or "",
         "document_tags": document_tags,
         "document_title": str(document_title) if document_title is not None else None,
         "document_summary": str(document_summary) if document_summary is not None else None,

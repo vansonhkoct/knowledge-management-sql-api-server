@@ -1,4 +1,6 @@
 
+import os
+
 from elasticsearch import Elasticsearch, logger, logging
 from typing import Dict
 
@@ -15,6 +17,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 es_logger = logger
 es_logger.setLevel(logging.DEBUG)
 
+ES_REQUEST_TIMEOUT_SECONDS = int(os.getenv("ES_REQUEST_TIMEOUT_SECONDS", "120"))
+
 class ElasticSearchController:
     def __init__(self, embedding):
 
@@ -25,6 +29,9 @@ class ElasticSearchController:
             ],
             basic_auth=(ConfigParams.username, ConfigParams.password),
             verify_certs=False,
+            request_timeout=ES_REQUEST_TIMEOUT_SECONDS,
+            retry_on_timeout=True,
+            max_retries=3,
         )
 
         self.embedding = embedding

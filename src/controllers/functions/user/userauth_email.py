@@ -93,6 +93,9 @@ async def obtain_user_by_user_credential(
       "username": username,
       "is_deleted": False,
     }).first()
+
+    if not user:
+      return None
     
     item = await UserCredential.filter(**{
       "credential_type": UserCredentialType.EMAIL,
@@ -128,6 +131,9 @@ async def obtain_user_by_user_credential_and_party_id(
       "party_id": party_id,
       "is_deleted": False,
     }).first()
+
+    if not user:
+      return None
     
     item = await UserCredential.filter(**{
       "user__party_id": party_id,

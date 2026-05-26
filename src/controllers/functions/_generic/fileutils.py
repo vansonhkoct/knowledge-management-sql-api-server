@@ -6,6 +6,32 @@ import unicodedata
 
 default_upload_dir = os.getenv("FILE_UPLOAD_ABSOLUTE_PATH") 
 
+
+def _get_upload_dir(upload_dir: str | None = None):
+  return upload_dir or default_upload_dir or "./upload"
+
+
+def _build_upload_filepath(filename: str, upload_dir: str | None = None):
+  return os.path.join(_get_upload_dir(upload_dir), filename)
+
+
+def _build_legacy_upload_filepath(filename: str, upload_dir: str | None = None):
+  return f"{_get_upload_dir(upload_dir)}{filename}"
+
+
+def _resolve_existing_upload_filepath(filename: str, upload_dir: str | None = None):
+  filepath = _build_upload_filepath(filename, upload_dir)
+  if os.path.exists(filepath):
+    return filepath
+
+  legacy_filepath = _build_legacy_upload_filepath(filename, upload_dir)
+  if os.path.exists(legacy_filepath):
+    os.makedirs(_get_upload_dir(upload_dir), exist_ok=True)
+    os.replace(legacy_filepath, filepath)
+    return filepath
+
+  return filepath
+
 class UploadFileRecord:
   def __init__(self, alias: str, filepath: str, filename: str, filesize: int, mimetype: str):
     self.alias = str(alias) if alias != None else None
@@ -20,10 +46,11 @@ async def upload_file_write_to_upload_folder(
   upload_dir: str = default_upload_dir,
   alias: str = None,
 ):
+  upload_dir = _get_upload_dir(upload_dir)
   os.makedirs(upload_dir, exist_ok=True)
   
   filename = makeSafeFilename(file.filename)
-  filepath = f"{default_upload_dir}{filename}"
+  filepath = _build_upload_filepath(filename, upload_dir)
 
   filebytes = await file.read()
 
@@ -45,17 +72,26 @@ async def make_file_ref_from_plaintext(
   plaintext: str,
   alias: str = None,
 ):
-  filename = alias if alias is not None else ""
-  filepath = ""
-  
-  filebytes = len(plaintext) if plaintext is not None else 0
+  upload_dir = _get_upload_dir(default_upload_dir)
+  os.makedirs(upload_dir, exist_ok=True)
+
+  display_name = alias if alias not in [None, ""] else "plaintext.txt"
+  if "." not in display_name:
+    display_name = f"{display_name}.txt"
+
+  filename = makeSafeFilename(display_name)
+  filepath = _build_upload_filepath(filename, upload_dir)
+  filebytes = (plaintext or "").encode("utf-8")
+
+  with open(filepath, "wb") as f:
+    f.write(filebytes)
   
   upload_file_record = UploadFileRecord(
-    alias = alias if alias is not None else "",
+    alias = alias if alias is not None else display_name,
     filepath=filepath,
     filename=filename,
-    filesize=filebytes,
-    mimetype="",
+    filesize=len(filebytes),
+    mimetype="text/plain",
   )
   
   return upload_file_record, filebytes
@@ -64,7 +100,7 @@ async def make_file_ref_from_plaintext(
 async def remove_file_from_upload_folder(
   filename: str,
 ):
-  filepath = f"{default_upload_dir}{filename}"
+  filepath = _resolve_existing_upload_filepath(filename, default_upload_dir)
 
   try:
     # Remove the file from the upload folder
@@ -79,7 +115,7 @@ async def remove_file_from_upload_folder(
 def load_uploaded_file(
   filename: str,
 ):
-  filepath = f"{default_upload_dir}{filename}"
+  filepath = _resolve_existing_upload_filepath(filename, default_upload_dir)
   return open(filepath, "rb")
 
 
