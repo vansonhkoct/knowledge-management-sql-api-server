@@ -5,6 +5,7 @@ class LLMVoAskQuestion:
     prompt: str
     history: List[List[str]] = []
     party_id=None
+    system_prompt=None
     llm_model_name=None
     llm_max_token=None
     llm_temperature=None
@@ -12,6 +13,7 @@ class LLMVoAskQuestion:
     llm_top_k=None
     llm_repetition_penalty=None
     llm_history_len=3
+    assistant_alias=None
     api_uid: str | None = None
     emit_to_uid = None
 
@@ -20,6 +22,7 @@ class LLMVoAskQuestion:
         prompt: str,
         history: List[List[str]] = [],
         party_id=None,
+        system_prompt=None,
         llm_model_name=None,
         llm_max_token=None,
         llm_temperature=None,
@@ -27,12 +30,14 @@ class LLMVoAskQuestion:
         llm_top_k=None,
         llm_repetition_penalty=None,
         llm_history_len=3,
+        assistant_alias=None,
         api_uid: str | None = None,
         emit_to_uid = None,
         ):
         self.prompt = prompt
         self.history = history
         self.party_id = party_id or None
+        self.system_prompt = system_prompt or None
         self.llm_model_name = llm_model_name or None
         self.llm_max_token = llm_max_token or 8192
         self.llm_temperature = llm_temperature or 0.01
@@ -40,6 +45,7 @@ class LLMVoAskQuestion:
         self.llm_top_k = llm_top_k or 4
         self.llm_repetition_penalty = llm_repetition_penalty or 1.2
         self.llm_history_len = llm_history_len or 3
+        self.assistant_alias = assistant_alias or "Knowledge Management Assistant"
         self.api_uid = api_uid
         self.emit_to_uid = emit_to_uid
         

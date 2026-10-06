@@ -622,6 +622,8 @@ async def generator_test_bot_llm_ask_question(
     )
   
   data = await request.json()
+  request_loop = asyncio.get_running_loop()
+  stream_queue = asyncio.Queue() if is_streaming else None
   retrieval_enabled = data["retrieval_enabled"] if "retrieval_enabled" in data else True
   conversation_history = data["history"] if "history" in data else []
     
@@ -773,6 +775,7 @@ async def generator_test_bot_llm_ask_question(
       prompt = prompt,
       history = conversation_history,
       party_id = data["index_name"],
+      system_prompt = data["prompt_prefix"] if "prompt_prefix" in data else None,
       llm_model_name = data["llm_model_name"] if "llm_model_name" in data else None,
       llm_max_token = llm_max_token,
       llm_temperature = data["llm_temperature"] if "llm_temperature" in data else 0.03,
@@ -780,13 +783,31 @@ async def generator_test_bot_llm_ask_question(
       llm_top_k = data["llm_top_k"] if "llm_top_k" in data else 4,
       llm_history_len = data["llm_history_len"] if "llm_history_len" in data else 3,
       api_uid = data["api_uid"] if "api_uid" in data else "",
-      emit_to_uid = _do_emit_to_uid,
+      emit_to_uid = _build_emit_to_uid(request_loop, stream_queue=stream_queue),
     )
     
     if not (data["skip_llm"] if "skip_llm" in data else False):
-      llm_answer_result = await ESChatLLM.bot_llm_ask_question(
-        vo=vo_llm,
-      )
+      if is_streaming:
+        llm_task = asyncio.create_task(ESChatLLM.bot_llm_ask_question(
+          vo=vo_llm,
+        ))
+
+        while True:
+          if llm_task.done() and stream_queue.empty():
+            break
+
+          try:
+            stream_event = await asyncio.wait_for(stream_queue.get(), timeout=0.15)
+          except asyncio.TimeoutError:
+            continue
+
+          yield f"data: {json.dumps(stream_event, ensure_ascii=False, default=str)}\n\n"
+
+        llm_answer_result = await llm_task
+      else:
+        llm_answer_result = await ESChatLLM.bot_llm_ask_question(
+          vo=vo_llm,
+        )
 
     else:
       llm_answer_result = None
@@ -827,7 +848,7 @@ async def generator_test_bot_llm_ask_question(
     }
 
     if is_streaming:
-      yield f"data: {json.dumps(final_res, ensure_ascii=False, default=str)}\n\n"
+      yield f"data: {json.dumps({ 'event': 'final', 'data': final_res }, ensure_ascii=False, default=str)}\n\n"
     else:
       yield final_res
 
@@ -841,18 +862,32 @@ async def generator_test_bot_llm_ask_question(
 
 
 
-def _do_emit_to_uid(topic, dict, uid):
-  async def fn():
-    await wsConnectionManager.send_personal_message(
-      message=json.dumps({
-        "topic": topic,
-        "dict": dict,
-        }), 
-      api_uid=uid,
-      is_lifo=True,
+def _build_emit_to_uid(loop, stream_queue = None):
+  def emit(topic, dict, uid):
+    message = {
+      "topic": topic,
+      "dict": dict,
+    }
+
+    asyncio.run_coroutine_threadsafe(
+      wsConnectionManager.send_personal_message(
+        message=json.dumps(message),
+        api_uid=uid,
+        is_lifo=True,
+      ),
+      loop,
     )
-  
-  asyncio.run(fn())
+
+    if stream_queue is not None:
+      loop.call_soon_threadsafe(
+        stream_queue.put_nowait,
+        {
+          "event": topic,
+          "data": dict,
+        },
+      )
+
+  return emit
   
 
 

@@ -120,6 +120,7 @@ class AIModelEndpoint(Model, _ModelBaseAccess, _ModelBaseBody):
     default_embedding_parties: fields.ReverseRelation["Party"]
 
     model_type = fields.CharEnumField(enum_type=AIModelEndpointType, index=True)
+    assistant_alias = fields.CharField(max_length=255, default="Knowledge Management Assistant")
     provider = fields.CharField(max_length=64, default="openai-compatible")
     base_url = fields.CharField(max_length=2048)
     api_path = fields.CharField(max_length=512, default="/v1")

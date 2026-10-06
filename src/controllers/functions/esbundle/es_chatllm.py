@@ -102,6 +102,7 @@ def _build_llm_controller(endpoint: AIModelEndpoint):
         api_path=endpoint.api_path,
         headers_json=endpoint.headers_json,
         options_json=endpoint.options_json,
+        assistant_alias=endpoint.assistant_alias,
     )
 
 

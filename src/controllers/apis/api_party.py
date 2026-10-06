@@ -52,27 +52,35 @@ async def _fetch_ai_model_endpoint(endpoint_id: str | None, model_type: str | No
   return item
 
 
-async def _serialize_ai_model_endpoint(item: AIModelEndpoint | None):
+async def _serialize_ai_model_endpoint(item: AIModelEndpoint | None, include_sensitive: bool = False):
   if item is None:
     return None
 
-  return {
+  payload = {
     "id": str(item.id),
     "name": item.name,
     "desc": item.desc,
     "model_type": item.model_type,
-    "provider": item.provider,
-    "base_url": item.base_url,
-    "api_path": item.api_path,
-    "api_key": item.api_key,
-    "model_name": item.model_name,
-    "headers_json": item.headers_json,
-    "options_json": item.options_json,
+    "assistant_alias": item.assistant_alias,
+    "display_name": item.assistant_alias or item.name or "Knowledge Management Assistant",
     "is_disabled": item.is_disabled,
     "is_deleted": item.is_deleted,
     "created_at": item.created_at,
     "modified_at": item.modified_at,
   }
+
+  if include_sensitive:
+    payload.update({
+      "provider": item.provider,
+      "base_url": item.base_url,
+      "api_path": item.api_path,
+      "api_key": item.api_key,
+      "model_name": item.model_name,
+      "headers_json": item.headers_json,
+      "options_json": item.options_json,
+    })
+
+  return payload
 
 
 async def _serialize_party(item: Party | None):
@@ -764,6 +772,7 @@ async def fetch_ai_model_endpoint_list(
 async def fetch_ai_model_endpoint_single(
   request: Request,
   id: str,
+  include_sensitive: int = 0,
 ):
   async def asyncjob(headers, user, access_token):
     ensure_can_manage_other_parties(user)
@@ -772,7 +781,7 @@ async def fetch_ai_model_endpoint_single(
       is_disabled=False,
       is_deleted=False,
     ).first()
-    return await _serialize_ai_model_endpoint(item)
+    return await _serialize_ai_model_endpoint(item, include_sensitive=(include_sensitive == 1))
 
   return await wrapped_api_task(
     request=request,
@@ -798,6 +807,7 @@ async def ai_model_endpoint_create(
       "name": data["name"] if "name" in data else "",
       "desc": data["desc"] if "desc" in data else None,
       "model_type": _normalize_model_type(data["model_type"] if "model_type" in data else None),
+      "assistant_alias": data["assistant_alias"] if "assistant_alias" in data else "Knowledge Management Assistant",
       "provider": data["provider"] if "provider" in data else "openai-compatible",
       "base_url": data["base_url"] if "base_url" in data else "",
       "api_path": data["api_path"] if "api_path" in data else "/v1",
@@ -861,6 +871,8 @@ async def ai_model_endpoint_update(
       item.desc = data["desc"]
     if "model_type" in data:
       item.model_type = _normalize_model_type(data["model_type"])
+    if "assistant_alias" in data:
+      item.assistant_alias = data["assistant_alias"] or "Knowledge Management Assistant"
     if "provider" in data:
       item.provider = data["provider"]
     if "base_url" in data:
