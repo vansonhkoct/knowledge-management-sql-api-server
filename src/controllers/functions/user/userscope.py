@@ -1,5 +1,7 @@
 from fastapi import HTTPException
 
+from src.controllers.functions.user.permissions import PermissionCode, normalize_permission_code
+
 
 def normalize_scope_id(value):
   if value in [None, ""]:
@@ -9,20 +11,24 @@ def normalize_scope_id(value):
 
 def get_user_permission_codes(user):
   role = getattr(user, "role", None)
-  permissions = getattr(role, "permissions", []) if role is not None else []
+  assignments = getattr(role, "permission_assignments", []) if role is not None else []
   return {
-    it.code: 1
-    for it in permissions
-    if it is not None and getattr(it, "code", None)
+    assignment.permission_code: 1
+    for assignment in assignments
+    if assignment is not None and getattr(assignment, "permission_code", None)
   }
 
 
 def user_has_permission(user, code: str):
-  return (get_user_permission_codes(user)).get(code) == 1
+  try:
+    code = normalize_permission_code(code)
+  except ValueError:
+    return False
+  return get_user_permission_codes(user).get(code) == 1
 
 
 def can_manage_other_parties(user):
-  return user_has_permission(user, "superadmin -> manage_partys")
+  return user_has_permission(user, PermissionCode.PARTY_MANAGE)
 
 
 def ensure_can_manage_other_parties(user):

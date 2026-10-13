@@ -10,6 +10,7 @@ from tortoise.contrib.fastapi import HTTPNotFoundError
 
 from src.controllers.functions._generic.modelutils import makeObjectID
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from src.controllers.functions.user.permissions import PermissionCode, ensure_permission
 from src.controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
 
 from src.models.master import Category, KMCategory
@@ -38,6 +39,7 @@ async def fetch_role_accessible_categorys(
   async def asyncjob(
     headers, user, access_token,
   ):
+    ensure_permission(user, PermissionCode.CATEGORY_MANAGE)
     # Calculate the offset based on the page and limit
     offset = (page) * limit
     
@@ -88,6 +90,7 @@ async def fetch_category_accessible_roles(
   async def asyncjob(
     headers, user, access_token,
   ):
+    ensure_permission(user, PermissionCode.CATEGORY_MANAGE)
     # Calculate the offset based on the page and limit
     offset = (page) * limit
     
@@ -137,6 +140,7 @@ async def bulk_update_mappings(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.CATEGORY_MANAGE)
 
 
     map_key_x = "category_id"
@@ -174,6 +178,8 @@ async def bulk_update_mappings(
       },
     }
   
+  except HTTPException:
+    raise
   except Exception as e:
     stacktrace = traceback.format_exc()
     raise HTTPException(
@@ -184,7 +190,6 @@ async def bulk_update_mappings(
         "stacktrace": stacktrace,
       }
     )
-
 
 
 

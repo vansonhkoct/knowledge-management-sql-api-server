@@ -4,6 +4,7 @@ from src.controllers.functions.esbundle.include.ElasticSearchDao.ESVo import ESV
 from src.models.master import File
 
 from typing import BinaryIO
+import os
 
 
 ESChatLLM = None
@@ -63,12 +64,27 @@ async def on_upload_file(
   file: BinaryIO = None,
   plaintext: str = None,
   category_id: str = None,
-  document_tags = [],
+  document_tags = None,
   document_title: str = None,
   document_summary: str = None,
   document_remarks: str = None,
   document_userdata = None,
 ):
+  if os.getenv("VECTOR_STORE_BACKEND", "pglite").lower() == "pglite":
+    from src.controllers.functions.rag.service import index_pdf
+    return await index_pdf(
+      party_id=str(party_id),
+      filename=filename,
+      file_id=str(file_id),
+      file=file,
+      category_id=str(category_id) if category_id is not None else None,
+      document_tags=document_tags,
+      document_title=document_title,
+      document_summary=document_summary,
+      document_remarks=document_remarks,
+      document_userdata=document_userdata,
+    )
+
   bootstrapImportESBundle()
   
   if plaintext is not None:
@@ -116,9 +132,23 @@ async def on_update_file(
   tags: list[str] = None,
   userdata = None,
 ):
+  if os.getenv("VECTOR_STORE_BACKEND", "pglite").lower() == "pglite":
+    from src.controllers.functions.rag.service import update_file_metadata
+    return await update_file_metadata(
+      party_id=str(party_id),
+      file_id=str(file.id),
+      category_id=str(category_id) if category_id is not None else None,
+      tags=tags,
+      userdata=userdata,
+    )
+
   bootstrapImportESBundle()
   
-  es_doc_ids = (file.es_doc_ids if file.es_doc_ids != None else "").split(",")
+  es_doc_ids = [
+    item_id
+    for item_id in (file.es_doc_ids if file.es_doc_ids is not None else "").split(",")
+    if item_id
+  ]
 
   for index in range(len(es_doc_ids)):
     await ESChatLLM.bot_es_update_document_metadata(
@@ -135,9 +165,20 @@ async def on_remove_file(
   party_id: str,
   file: File,
 ):
+  if os.getenv("VECTOR_STORE_BACKEND", "pglite").lower() == "pglite":
+    from src.controllers.functions.rag.service import delete_file_chunks
+    return await delete_file_chunks(
+      party_id=str(party_id),
+      file_id=str(file.id),
+    )
+
   bootstrapImportESBundle()
   
-  es_doc_ids = (file.es_doc_ids if file.es_doc_ids != None else "").split(",")
+  es_doc_ids = [
+    item_id
+    for item_id in (file.es_doc_ids if file.es_doc_ids is not None else "").split(",")
+    if item_id
+  ]
 
   for index in range(len(es_doc_ids)):
     await ESChatLLM.bot_es_delete_document_by_id(
@@ -151,6 +192,13 @@ async def fetch_es_docs(
   party_id: str,
   file: File,
 ):
+  if os.getenv("VECTOR_STORE_BACKEND", "pglite").lower() == "pglite":
+    from src.controllers.functions.rag.service import fetch_file_chunks
+    return await fetch_file_chunks(
+      party_id=str(party_id),
+      file_id=str(file.id),
+    )
+
   bootstrapImportESBundle()
   
   es_doc_ids = (file.es_doc_ids if file.es_doc_ids != None else "").split(",")
@@ -172,4 +220,3 @@ async def fetch_es_docs(
   
   
   
-

@@ -43,7 +43,7 @@ class _ModelBaseBody:
 class Role(Model, _ModelBaseAccess, _ModelBaseBody):
     party = fields.ForeignKeyField("models.Party", related_names="roles", null=True)
     code = fields.CharField(max_length=64, null=True, index=True)
-    permissions: fields.ManyToManyRelation["Permission"]
+    permission_assignments: fields.ReverseRelation["RolePermissionAssignment"]
     accessible_categorys = fields.ManyToManyField("models.Category", through="_rel_role_accessible_category", null=True)
     users: fields.ReverseRelation["User"]
     def __str__(self):
@@ -70,16 +70,24 @@ class Category(Model, _ModelBaseAccess, _ModelBaseBody):
     def __str__(self):
         return self.name
 
-class Permission(Model, _ModelBaseAccess, _ModelBaseBody):
-    code = fields.CharField(max_length=64, null=True, index=True)
-    roles = fields.ManyToManyField("models.Role", through="_rel_role_permission", null=True)
-    def __str__(self):
-        return self.name
+class RolePermissionAssignment(Model):
+    id = fields.UUIDField(pk=True)
+    role = fields.ForeignKeyField(
+        "models.Role",
+        related_name="permission_assignments",
+        on_delete=fields.CASCADE,
+    )
+    permission_code = fields.CharField(max_length=64, index=True)
+
+    class Meta:
+        table = "role_permission_assignment"
+        unique_together = (("role", "permission_code"),)
 
 class File(Model, _ModelBaseAccess):
     category = fields.ForeignKeyField("models.Category", related_names="files", null=True)
     party = fields.ForeignKeyField("models.Party", related_names="files", null=True)
     process_logs: fields.ReverseRelation["FileProcessLog"]
+    index_jobs: fields.ReverseRelation["FileIndexJob"]
 
     alias = fields.CharField(max_length=512, null=True)
     filename = fields.CharField(max_length=255, null=True)
@@ -88,6 +96,13 @@ class File(Model, _ModelBaseAccess):
     status = fields.CharField(max_length=24, null=True, index=True)
     latest_process_message = fields.TextField(null=True)
     ingest_error = fields.TextField(null=True)
+    index_status = fields.CharField(max_length=24, default="NOT_INDEXED", index=True)
+    index_error = fields.TextField(null=True)
+    index_attempt_count = fields.IntField(default=0)
+    index_version = fields.CharField(max_length=64, null=True)
+    source_hash = fields.CharField(max_length=64, null=True)
+    indexed_source_hash = fields.CharField(max_length=64, null=True)
+    indexed_at = fields.DatetimeField(null=True)
     document_tags_json = fields.JSONField(null=True)
     document_title = fields.CharField(max_length=1024, null=True)
     document_summary = fields.TextField(null=True)
@@ -113,6 +128,31 @@ class FileProcessLog(Model):
 
     class Meta:
         table = "file_process_log"
+
+
+class FileIndexJob(Model):
+    id = fields.UUIDField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    modified_at = fields.DatetimeField(auto_now=True)
+
+    file = fields.ForeignKeyField("models.File", related_names="index_jobs", null=False)
+    party = fields.ForeignKeyField("models.Party", related_names="file_index_jobs", null=False)
+    requested_by = fields.ForeignKeyField(
+        "models.User",
+        related_names="requested_file_index_jobs",
+        null=True,
+        on_delete=fields.SET_NULL,
+    )
+    status = fields.CharField(max_length=24, default="QUEUED", index=True)
+    attempt = fields.IntField(default=0)
+    error = fields.TextField(null=True)
+    source_hash = fields.CharField(max_length=64, null=True)
+    index_version = fields.CharField(max_length=64, null=True)
+    started_at = fields.DatetimeField(null=True)
+    completed_at = fields.DatetimeField(null=True)
+
+    class Meta:
+        table = "file_index_job"
 
 
 class AIModelEndpoint(Model, _ModelBaseAccess, _ModelBaseBody):
@@ -141,6 +181,7 @@ class Party(Model, _ModelBaseAccess):
     files: fields.ReverseRelation["File"]
     chats: fields.ReverseRelation["Chat"]
     users: fields.ReverseRelation["User"]
+    file_index_jobs: fields.ReverseRelation["FileIndexJob"]
 
     default_llm_model = fields.ForeignKeyField(
         "models.AIModelEndpoint",
@@ -186,6 +227,7 @@ class User(Model, _ModelBaseAccess, _ModelBaseBody):
     userCredentials: fields.ReverseRelation["UserCredential"]
     userSessions: fields.ReverseRelation["UserSession"]
     userRequests: fields.ReverseRelation["UserRequest"]
+    requested_file_index_jobs: fields.ReverseRelation["FileIndexJob"]
     
     username = fields.CharField(256, index=True, null=False)
     email = fields.CharField(512, index=True, null=True)

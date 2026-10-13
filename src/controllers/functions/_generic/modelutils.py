@@ -1,10 +1,9 @@
 
-from bson import ObjectId
 import bcrypt
 import uuid
 
 def makeObjectID():
-  object_id = str(ObjectId())
+  object_id = uuid.uuid4().hex[:24]
   print(object_id)
   return object_id
 
@@ -25,4 +24,3 @@ def checkPassword(hashed_password: str, password: str):
       hashed_password=hashed_password.encode('utf-8'),
     )
     return check
-

@@ -22,7 +22,7 @@ async def obtain_user_by_user_access_token(
         status_code=403,
       )
 
-    await item.user.fetch_related("role__permissions")
+    await item.user.fetch_related("role__permission_assignments")
     return item.user if item != None else None
 
   except Exception as e:
@@ -81,19 +81,17 @@ async def create_new_access_token_and_refresh_token_by_user(
 async def fetch_loggedin_user_info(headers):
   user = None
   access_token = None
-  
-  try:
-    authorization_header = headers["authorization"]
-    if authorization_header.startswith("Bearer "):
-        access_token = authorization_header.split(" ")[1]
-        user = await obtain_user_by_user_access_token(access_token=access_token)
-        
-  except Exception as e:
-    raise e
+
+  authorization_header = headers.get("authorization", "")
+  if authorization_header.startswith("Bearer "):
+    access_token = authorization_header.removeprefix("Bearer ").strip()
+    if access_token:
+      user = await obtain_user_by_user_access_token(access_token=access_token)
   
   if user == None:
     raise HTTPException(
       status_code=403,
+      detail="Authentication required",
     )
 
   return user, access_token
@@ -108,8 +106,6 @@ async def delete_access_token(
 
   except Exception as e:
     raise e
-
-
 
 
 

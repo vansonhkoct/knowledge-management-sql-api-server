@@ -1,8 +1,8 @@
 import os
 from fastapi import File, UploadFile
-from bson import ObjectId
 import re
 import unicodedata
+import uuid
 
 default_upload_dir = os.getenv("FILE_UPLOAD_ABSOLUTE_PATH") 
 
@@ -119,9 +119,15 @@ def load_uploaded_file(
   return open(filepath, "rb")
 
 
+def resolve_uploaded_file_path(filename: str):
+  if not filename or os.path.basename(filename) != filename:
+    raise ValueError("Invalid stored filename")
+  return _resolve_existing_upload_filepath(filename, default_upload_dir)
+
+
 
 def makeSafeFilename(original_filename):
-  object_id = str(ObjectId())
+  object_id = uuid.uuid4().hex[:24]
   
   filename = original_filename if original_filename != None else ""
   
@@ -154,5 +160,3 @@ def getStaticFilesBaseUrl():
 
 def getUploadFilesBaseUrl():
   return os.getenv("URL_UPLOAD_BASE_URL")
-
-

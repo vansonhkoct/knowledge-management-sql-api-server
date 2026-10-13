@@ -1,158 +1,52 @@
-import traceback
-from fastapi import APIRouter, File, UploadFile, Form, Request
-from fastapi import HTTPException
-from typing import Annotated
-from tortoise.expressions import Q
+from fastapi import APIRouter, HTTPException, Request
 
-from src.controllers.functions._generic.fileutils import UploadFileRecord, upload_file_write_to_upload_folder
-from src.controllers.functions.file.file import create_entry_file
-
-from src.models.master import User, Role, Permission
+from src.controllers.functions.user.permissions import (
+  PERMISSION_DEFINITIONS,
+  PERMISSIONS_BY_CODE,
+)
+from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
 
 
 router = APIRouter(prefix="/api/v1")
 
 TAG_C001 = "C_PERMISSION001"
-TAG_E001 = "E_PERMISSION001"
-
-
-
-@router.post("/permission")
-async def permission_create(
-  request: Request,
-):
-  try:
-    headers = request.headers
-    
-    payload = {}
-    
-    item = await Permission.create(**payload)
-
-    return {
-      "success": True,
-      "message": TAG_C001,
-      "data": {
-        "item": item,
-      },
-    }
-
-  except Exception as e:
-    stacktrace = traceback.format_exc()
-    raise HTTPException(
-      status_code=500,
-      detail={
-        "message": TAG_E001,
-        "error": str(e),
-        "stacktrace": stacktrace,
-      }
-    )
-
-
-
 
 
 @router.get("/permission")
-async def fetch(
+async def fetch_permissions(
   request: Request,
   page: int = 0,
-  limit: int = 10,
+  limit: int = 100,
 ):
-  try:
-    headers = request.headers
-    
-    # Calculate the offset based on the page and limit
-    offset = (page) * limit
-    
-    # Fetch the category items from the database using Tortoise ORM
-    filters = {}
-    
-    filters["is_disabled"] = False
-    filters["is_deleted"] = False
-
-    items = (
-      await Permission
-        .filter(Q(**filters))
-        .offset(offset)
-        .limit(limit)
-    )
-    
-    total_count = (
-      await Permission
-        .filter(Q(**filters))
-        .count()
-    )
-
-    tsql = (
-      Permission
-        .filter(Q(**filters))
-        .sql()
-    )
-
-    return {
-      "success": True,
-      "message": TAG_C001,
-      "data": {
-        "filters": filters,
-        "sql": tsql,
-        "pagination": {
-          "page": page,
-          "limit": limit,
-          "total_count": total_count,
-        },
-        "items": items,
+  await fetch_loggedin_user_info(headers=request.headers)
+  offset = max(page, 0) * max(limit, 0)
+  items = [item.serialize() for item in PERMISSION_DEFINITIONS]
+  paginated_items = items[offset:offset + limit] if limit > 0 else []
+  return {
+    "success": True,
+    "message": TAG_C001,
+    "data": {
+      "pagination": {
+        "page": page,
+        "limit": limit,
+        "total_count": len(items),
       },
-    }
-  
-  except Exception as e:
-    stacktrace = traceback.format_exc()
-    raise HTTPException(
-      status_code=500,
-      detail={
-        "message": TAG_E001,
-        "error": str(e),
-        "stacktrace": stacktrace,
-      }
-    )
-
-
-
-
-
+      "items": paginated_items,
+    },
+  }
 
 
 @router.get("/permission/single")
-async def fetchSingle(
+async def fetch_permission(
   request: Request,
-  id: str,
+  code: str,
 ):
-  try:
-    headers = request.headers
-    
-    filters = {}
-    filters["id"] = id
-    filters["is_disabled"] = False
-    filters["is_deleted"] = False
-
-    item = (
-      await Permission
-        .filter(Q(**filters))
-        .first()
-    )
-    
-
-    return {
-      "success": True,
-      "message": TAG_C001,
-      "data": item,
-    }
-  
-  except Exception as e:
-    stacktrace = traceback.format_exc()
-    raise HTTPException(
-      status_code=500,
-      detail={
-        "message": TAG_E001,
-        "error": str(e),
-        "stacktrace": stacktrace,
-      }
-    )
+  await fetch_loggedin_user_info(headers=request.headers)
+  item = PERMISSIONS_BY_CODE.get(code)
+  if item is None:
+    raise HTTPException(status_code=404, detail="Permission not found")
+  return {
+    "success": True,
+    "message": TAG_C001,
+    "data": item.serialize(),
+  }

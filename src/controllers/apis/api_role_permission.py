@@ -1,205 +1,147 @@
-import traceback
-from fastapi import APIRouter, File, UploadFile, Form, Request
-from fastapi import HTTPException
-from typing import Annotated
-from tortoise.expressions import Q
-from itertools import groupby
+from fastapi import APIRouter, HTTPException, Request
+from tortoise.transactions import atomic
 
-from tortoise.exceptions import IntegrityError
-from tortoise.contrib.fastapi import HTTPNotFoundError
-
-from src.controllers.functions._generic.modelutils import makeObjectID
+from src.controllers.functions.user.permissions import (
+  PermissionCode,
+  ensure_permission,
+  normalize_permission_code,
+  serialize_permission,
+)
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
 from src.controllers.functions.user.userscope import resolve_target_party_id
-from src.controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
-
-from src.models.master import Permission
-from src.models.master import Role
+from src.models.master import Role, RolePermissionAssignment
 
 
 router = APIRouter(prefix="/api/v1")
 
-
 TAG_C001 = "C_ROLE_PERMISSION001"
-TAG_E001 = "E_ROLE_PERMISSION001"
 
 
+def _serialize_role(item: Role) -> dict:
+  return {
+    "id": str(item.id),
+    "party_id": str(item.party_id) if item.party_id else None,
+    "code": item.code,
+    "name": item.name,
+    "desc": item.desc,
+  }
 
 
-
+async def _authorized_party(request: Request, requested_party_id: str | None):
+  user, _ = await fetch_loggedin_user_info(headers=request.headers)
+  ensure_permission(user, PermissionCode.ROLE_MANAGE)
+  return resolve_target_party_id(user=user, requested_party_id=requested_party_id)
 
 
 @router.get("/role_permissions/role_permissions")
 async def fetch_role_permissions(
   request: Request,
   page: int = 0,
-  limit: int = 10,
-  role_id: str = None,
-  party_id: str = None,
+  limit: int = 100,
+  role_id: str | None = None,
+  party_id: str | None = None,
 ):
-  async def asyncjob(
-    headers, user, access_token,
-  ):
-    target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
+  target_party_id = await _authorized_party(request, party_id)
+  role = await Role.filter(
+    id=role_id,
+    party_id=target_party_id,
+    is_disabled=False,
+    is_deleted=False,
+  ).first()
+  if role is None:
+    raise HTTPException(status_code=404, detail="Role not found")
 
-    # Calculate the offset based on the page and limit
-    offset = (page) * limit
-    
-    # Fetch the permission items from the database using Tortoise ORM
-    filters = {}
-    filters["roles__party_id"] = target_party_id
-    if role_id is not None:
-      filters["roles__id"] = role_id
-    filters["roles__is_disabled"] = False
-    filters["roles__is_deleted"] = False
-    filters["is_disabled"] = False
-    filters["is_deleted"] = False
-
-    items, total_count, tsql = await fetch_paginated(
-      model=Permission,
-      filters=filters,
-      offset=offset,
-      limit=limit,
-    )
-    
-    return {
-      "filters": filters,
-      "sql": tsql,
-      "pagination": {
-        "page": page,
-        "limit": limit,
-        "total_count": total_count,
-      },
-      "items": items,
-    }
-  
-  return await wrapped_api_task(
-    request=request,
-    fetch_loggedin_user_info=fetch_loggedin_user_info,
-    asyncjob=asyncjob,
-    code_success=TAG_C001,
-    code_error=TAG_E001,
-  )
-  
+  codes = await RolePermissionAssignment.filter(role_id=role.id).order_by(
+    "permission_code"
+  ).values_list("permission_code", flat=True)
+  items = [serialize_permission(code) for code in codes]
+  offset = max(page, 0) * max(limit, 0)
+  paginated_items = items[offset:offset + limit] if limit > 0 else []
+  return {
+    "success": True,
+    "message": TAG_C001,
+    "data": {
+      "pagination": {"page": page, "limit": limit, "total_count": len(items)},
+      "items": paginated_items,
+    },
+  }
 
 
 @router.get("/role_permissions/permission_roles")
 async def fetch_permission_roles(
   request: Request,
   page: int = 0,
-  limit: int = 10,
-  permission_id: str = None,
-  party_id: str = None,
+  limit: int = 100,
+  permission_code: str | None = None,
+  party_id: str | None = None,
 ):
-  async def asyncjob(
-    headers, user, access_token,
-  ):
-    target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
-
-    # Calculate the offset based on the page and limit
-    offset = (page) * limit
-    
-    # Fetch the permission items from the database using Tortoise ORM
-    filters = {}
-    filters["party_id"] = target_party_id
-    filters["permissions__id"] = (permission_id if permission_id != None else None)
-    filters["permissions__is_disabled"] = False
-    filters["permissions__is_deleted"] = False
-    filters["is_disabled"] = False
-    filters["is_deleted"] = False
-
-    items, total_count, tsql = await fetch_paginated(
-      model=Role,
-      filters=filters,
-      offset=offset,
-      limit=limit,
-    )
-    
-    return {
-      "filters": filters,
-      "sql": tsql,
-      "pagination": {
-        "page": page,
-        "limit": limit,
-        "total_count": total_count,
-      },
-      "items": items,
-    }
-  
-  return await wrapped_api_task(
-    request=request,
-    fetch_loggedin_user_info=fetch_loggedin_user_info,
-    asyncjob=asyncjob,
-    code_success=TAG_C001,
-    code_error=TAG_E001,
-  )
-  
-
-
+  target_party_id = await _authorized_party(request, party_id)
+  try:
+    permission_code = normalize_permission_code(permission_code) if permission_code else None
+  except ValueError as error:
+    raise HTTPException(status_code=400, detail=str(error)) from error
+  filters = {
+    "party_id": target_party_id,
+    "is_disabled": False,
+    "is_deleted": False,
+  }
+  if permission_code:
+    filters["permission_assignments__permission_code"] = permission_code
+  query = Role.filter(**filters).distinct()
+  total_count = await query.count()
+  items = await query.order_by("created_at").offset(page * limit).limit(limit)
+  return {
+    "success": True,
+    "message": TAG_C001,
+    "data": {
+      "pagination": {"page": page, "limit": limit, "total_count": total_count},
+      "items": [_serialize_role(item) for item in items],
+    },
+  }
 
 
 @router.post("/role_permissions/bulk_update")
-async def bulk_update_mappings(
-  request: Request,
-):
-  try:
-    headers = request.headers
-    user, access_token = await fetch_loggedin_user_info(headers=headers)
+@atomic()
+async def bulk_update_mappings(request: Request):
+  data = await request.json()
+  target_party_id = await _authorized_party(request, data.get("party_id"))
+  add_mappings = data.get("add_mappings") or []
+  remove_mappings = data.get("remove_mappings") or []
 
+  async def resolve_mapping(mapping: dict):
+    role = await Role.filter(
+      id=mapping.get("role_id"),
+      party_id=target_party_id,
+      is_disabled=False,
+      is_deleted=False,
+    ).first()
+    if role is None:
+      raise HTTPException(status_code=404, detail="Role not found")
+    try:
+      permission_code = normalize_permission_code(mapping.get("permission_code"))
+    except ValueError as error:
+      raise HTTPException(status_code=400, detail=str(error)) from error
+    return role, permission_code
 
-    map_key_x = "permission_id"
-    map_key_y = "role_id"
-
-
-    data = await request.json()
-    target_party_id = resolve_target_party_id(
-      user=user,
-      requested_party_id=data["party_id"] if "party_id" in data else None,
-    )
-    add_mappings = data["add_mappings"] if "add_mappings" in data else []
-    remove_mappings = data["remove_mappings"] if "remove_mappings" in data else []
-
-
-
-    # TODO: bulk add
-    for dict in add_mappings:
-      permission = await Permission.filter( Q(**{ "id": dict[map_key_x] }) ).first()
-      role = await Role.filter( Q(**{ "id": dict[map_key_y], "party_id": target_party_id, "is_deleted": False }) ).first()
-      if (permission != None and role != None):
-        await permission.roles.add(role)
-
-
-    # TODO: bulk remove
-    for dict in remove_mappings:
-      permission = await Permission.filter( Q(**{ "id": dict[map_key_x] }) ).first()
-      role = await Role.filter( Q(**{ "id": dict[map_key_y], "party_id": target_party_id, "is_deleted": False }) ).first()
-      if (permission != None and role != None):
-        await permission.roles.remove(role)
-
-
-    return {
-      "success": True,
-      "message": TAG_C001,
-      "data": {
-        "add_mappings": add_mappings,
-        "remove_mappings": remove_mappings,
-      },
-    }
-
-  except HTTPException as e:
-    raise e
-  
-  except Exception as e:
-    stacktrace = traceback.format_exc()
-    raise HTTPException(
-      status_code=500,
-      detail={
-        "message": TAG_E001,
-        "error": str(e),
-        "stacktrace": stacktrace,
-      }
+  for mapping in add_mappings:
+    role, permission_code = await resolve_mapping(mapping)
+    await RolePermissionAssignment.get_or_create(
+      role_id=role.id,
+      permission_code=permission_code,
     )
 
+  for mapping in remove_mappings:
+    role, permission_code = await resolve_mapping(mapping)
+    await RolePermissionAssignment.filter(
+      role_id=role.id,
+      permission_code=permission_code,
+    ).delete()
 
-
-
+  return {
+    "success": True,
+    "message": TAG_C001,
+    "data": {
+      "add_mappings": add_mappings,
+      "remove_mappings": remove_mappings,
+    },
+  }

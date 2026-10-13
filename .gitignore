@@ -165,4 +165,13 @@ cython_debug/
 upload/
 .vscode/
 
+# Disposable local databases and PGlite runtime data
+var/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+pglite-sidecar/node_modules/
 
+# Local runtime secrets
+.env
+___.env

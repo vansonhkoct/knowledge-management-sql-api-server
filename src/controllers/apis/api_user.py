@@ -8,8 +8,10 @@ from src.controllers.functions.user.user import create_user, update_user_passwor
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info, delete_access_token
 from src.controllers.functions.user.user_serializer import serialize_user
 from src.controllers.functions.user.userscope import resolve_target_party_id
+from src.controllers.functions.user.permissions import PermissionCode, ensure_permission
+from src.controllers.functions._generic.queryutils import render_debug_sql
 
-from src.models.master import User, Role, Permission, UserCredential, UserCredentialType
+from src.models.master import User, Role, UserCredential, UserCredentialType
 
 
 router = APIRouter(prefix="/api/v1")
@@ -109,6 +111,7 @@ async def user_create(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.USER_MANAGE)
 
     data = await request.json()
 
@@ -167,6 +170,7 @@ async def user_upsert_by_username(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.USER_MANAGE)
 
     data = await request.json()
     
@@ -316,6 +320,7 @@ async def fetch(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.USER_MANAGE)
     target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
     
     # Calculate the offset based on the page and limit
@@ -340,11 +345,7 @@ async def fetch(
         .count()
     )
 
-    tsql = (
-      User
-        .filter(Q(**filters))
-        .sql()
-    )
+    tsql = render_debug_sql(User.filter(Q(**filters)))
 
     for k in range(len(items)):
       items[k] = await serialize_user(items[k]) 
@@ -393,6 +394,7 @@ async def fetchSingle(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.USER_MANAGE)
     target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
     
     filters = {}
@@ -440,6 +442,7 @@ async def update(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.USER_MANAGE)
     target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
   
     filters = {}
@@ -491,7 +494,7 @@ async def update(
     
   except HTTPException as e:
     raise e
-    
+
   except Exception as e:
     stacktrace = traceback.format_exc()
     raise HTTPException(
@@ -515,6 +518,7 @@ async def remove(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.USER_MANAGE)
     target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
   
     filters = {}
@@ -526,7 +530,7 @@ async def remove(
         .filter(Q(**filters))
         .first()
     )
-    
+
     if not item:
       raise HTTPException(status_code=404, detail="User not found")
 
@@ -551,10 +555,10 @@ async def remove(
         "item": item,
       },
     }
-    
+
   except HTTPException as e:
     raise e
-    
+
   except Exception as e:
     stacktrace = traceback.format_exc()
     raise HTTPException(
@@ -565,4 +569,3 @@ async def remove(
         "stacktrace": stacktrace,
       }
     )
-    

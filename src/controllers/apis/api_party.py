@@ -1,4 +1,5 @@
 import traceback
+import re
 from fastapi import APIRouter, File, UploadFile, Form, Request
 from fastapi import HTTPException
 from typing import Annotated
@@ -6,11 +7,19 @@ from tortoise.expressions import Q
 from tortoise.transactions import atomic
 
 from src.controllers.functions.user.user import create_user
+from src.controllers.functions.user.setup import superadmin_exists
+from src.controllers.functions.user.permissions import (
+  ALL_PERMISSION_CODES,
+  PermissionCode,
+  assign_role_permissions,
+)
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
 from src.controllers.functions.user.userscope import can_manage_other_parties, ensure_can_manage_other_parties
 from src.controllers.functions._generic.queryutils import fetch_paginated, fetch_single, wrapped_api_task
+from src.controllers.functions._generic.secretutils import encrypt_secret
+from src.controllers.functions._generic.endpointutils import validate_ai_endpoint_url
 
-from src.models.master import Party, User, Role, Permission, Category, AIModelEndpoint
+from src.models.master import Party, User, Role, Category, AIModelEndpoint, File, FileIndexJob
 
 
 router = APIRouter(prefix="/api/v1")
@@ -23,11 +32,18 @@ MODEL_TYPE_LLM = "LLM"
 MODEL_TYPE_EMBEDDING = "EMBEDDING"
 
 
+def _validate_endpoint_url(value: str) -> str:
+  try:
+    return validate_ai_endpoint_url(value)
+  except ValueError as error:
+    raise HTTPException(status_code=400, detail=str(error)) from error
+
+
 def _normalize_model_type(value: str | None):
   if value in [None, ""]:
     return None
 
-  normalized = str(value).strip().upper()
+  normalized = str(getattr(value, "value", value)).strip().upper()
   if normalized not in [MODEL_TYPE_LLM, MODEL_TYPE_EMBEDDING]:
     raise HTTPException(status_code=400, detail=f"Unsupported model_type: {value}")
   return normalized
@@ -60,13 +76,14 @@ async def _serialize_ai_model_endpoint(item: AIModelEndpoint | None, include_sen
     "id": str(item.id),
     "name": item.name,
     "desc": item.desc,
-    "model_type": item.model_type,
+    "model_type": _normalize_model_type(item.model_type),
     "assistant_alias": item.assistant_alias,
     "display_name": item.assistant_alias or item.name or "Knowledge Management Assistant",
     "is_disabled": item.is_disabled,
     "is_deleted": item.is_deleted,
     "created_at": item.created_at,
     "modified_at": item.modified_at,
+    "has_secret": bool(item.api_key),
   }
 
   if include_sensitive:
@@ -74,7 +91,6 @@ async def _serialize_ai_model_endpoint(item: AIModelEndpoint | None, include_sen
       "provider": item.provider,
       "base_url": item.base_url,
       "api_path": item.api_path,
-      "api_key": item.api_key,
       "model_name": item.model_name,
       "headers_json": item.headers_json,
       "options_json": item.options_json,
@@ -121,22 +137,6 @@ async def _fetch_existing_party_by_username(username: str | None):
     is_disabled=False,
     is_deleted=False,
   ).first()
-
-
-async def _get_or_create_global_permission(code: str):
-  permission = await Permission.filter(
-    code=code,
-    is_deleted=False,
-  ).order_by("created_at").first()
-
-  if permission is None:
-    permission = await Permission.create(**{
-      "code": code,
-    })
-
-  return permission
-
-
 
 
 @router.get("/party")
@@ -236,6 +236,8 @@ async def party_create_default(
 ):
   try:
     headers = request.headers
+    user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_can_manage_other_parties(user)
     
     data = await request.json()
 
@@ -303,32 +305,6 @@ async def party_create_default(
       "code": "teacher",
       "party": party,
     })
-    
-    
-    
-    it_permission_user_manage = await Permission.filter(**{
-      "code": "user -> manage",
-    }).first()
-    
-    it_permission_category_manage = await Permission.filter(**{
-      "code": "category -> manage",
-    }).first()
-
-    it_permission_file_manage = await Permission.filter(**{
-      "code": "file -> manage",
-    }).first()
-
-    it_permission_role_manage = await Permission.filter(**{
-      "code": "role -> manage",
-    }).first()
-
-    it_permission_permission_manage = await Permission.filter(**{
-      "code": "permission -> manage",
-    }).first()
-
-    it_permission_knowledge_search = await Permission.filter(**{
-      "code": "knowledge -> search",
-    }).first()
     
     
     
@@ -426,28 +402,23 @@ async def party_create_default(
     
 
     
-    await it_role_admin.permissions.add(
-      it_permission_user_manage,
-      it_permission_file_manage,
-      it_permission_role_manage,
-      it_permission_knowledge_search,
-    )
+    await assign_role_permissions(it_role_admin, (
+      PermissionCode.USER_MANAGE,
+      PermissionCode.FILE_MANAGE,
+      PermissionCode.FILE_INDEX,
+      PermissionCode.ROLE_MANAGE,
+      PermissionCode.CATEGORY_MANAGE,
+      PermissionCode.CATEGORY_UPLOAD,
+      PermissionCode.KNOWLEDGE_SEARCH,
+    ))
 
-    await it_role_president.permissions.add(
-      it_permission_knowledge_search,
-    )
-
-    await it_role_executive_officer.permissions.add(
-      it_permission_knowledge_search,
-    )
-
-    await it_role_school_affairs_officer.permissions.add(
-      it_permission_knowledge_search,
-    )
-
-    await it_role_teacher.permissions.add(
-      it_permission_knowledge_search,
-    )
+    for role in (
+      it_role_president,
+      it_role_executive_officer,
+      it_role_school_affairs_officer,
+      it_role_teacher,
+    ):
+      await assign_role_permissions(role, (PermissionCode.KNOWLEDGE_SEARCH,))
     
     await it_role_president.accessible_categorys.add(
       it_category_EDB,
@@ -593,11 +564,33 @@ async def party_update(
       item.default_llm_model_id = default_llm_model.id if default_llm_model is not None else None
 
     if "default_embedding_model_id" in data:
+      previous_embedding_model_id = item.default_embedding_model_id
       default_embedding_model = await _fetch_ai_model_endpoint(
         data["default_embedding_model_id"],
         model_type=MODEL_TYPE_EMBEDDING,
       )
       item.default_embedding_model_id = default_embedding_model.id if default_embedding_model is not None else None
+
+      if previous_embedding_model_id != item.default_embedding_model_id:
+        has_active_jobs = await FileIndexJob.filter(
+          party_id=item.id,
+          status__in=["QUEUED", "RUNNING"],
+        ).exists()
+        if has_active_jobs:
+          raise HTTPException(
+            status_code=409,
+            detail="Wait for queued/running indexing jobs before changing the embedding endpoint",
+          )
+        await File.filter(
+          party_id=item.id,
+          is_deleted=False,
+        ).update(
+          index_status="NOT_INDEXED",
+          index_error=None,
+          indexed_source_hash=None,
+          indexed_at=None,
+          latest_process_message="Embedding profile changed; select this file to enqueue indexing",
+        )
 
     await item.save()
 
@@ -631,24 +624,28 @@ async def party_create_superadmin_party(
   request: Request,
 ):
   try:
-    headers = request.headers
-    
+    if await superadmin_exists():
+      raise HTTPException(status_code=409, detail="Initial setup has already been completed")
+
     data = await request.json()
 
-    name = data["name"] if "name" in data else ""
-    prefix = data["prefix"] if "prefix" in data else ""
-    password = data["password"] if "password" in data else "123"
+    name = str(data.get("name") or "").strip()
+    prefix = str(data.get("prefix") or "").strip()
+    username = str(data.get("username") or f"{prefix}superadmin").strip()
+    password = str(data.get("password") or "")
 
-    existing_party = await _fetch_existing_party_by_username(f"{prefix}superadmin")
-    if existing_party is not None:
-      return {
-        "success": True,
-        "message": TAG_C001,
-        "data": {
-          "item": await _serialize_party(existing_party),
-          "already_exists": True,
-        },
-      }
+    if not name:
+      raise HTTPException(status_code=400, detail="Organization name is required")
+    if not re.fullmatch(r"[A-Za-z0-9._-]{3,64}", username):
+      raise HTTPException(
+        status_code=400,
+        detail="Username must be 3-64 characters using letters, numbers, dot, underscore, or hyphen",
+      )
+    if len(password) < 8:
+      raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    if await User.filter(username=username, is_deleted=False).exists():
+      raise HTTPException(status_code=409, detail="Username is already in use")
     
 
     payload = {
@@ -677,28 +674,16 @@ async def party_create_superadmin_party(
       "party": party,
     })
     
-    it_permission_superadmin_manage_partys = await _get_or_create_global_permission(
-      "superadmin -> manage_partys",
-    )
-    
-    it_permission_superadmin_manage_shared_categorys = await _get_or_create_global_permission(
-      "superadmin -> manage_shared_categorys",
-    )
-    
-    
     it_user_superadmin = await create_user(**{
       "party_id": party.id,
       "role_id": it_role_superadmin.id,
       "name": "Superadmin",
-      "username": f"{prefix}superadmin",
+      "username": username,
       "password": password,
     })
     
     
-    await it_role_superadmin.permissions.add(
-      it_permission_superadmin_manage_partys,
-      it_permission_superadmin_manage_shared_categorys,
-    )
+    await assign_role_permissions(it_role_superadmin, ALL_PERMISSION_CODES)
 
 
     return {
@@ -708,7 +693,10 @@ async def party_create_superadmin_party(
         "item": await _serialize_party(party),
       },
     }
-    
+
+  except HTTPException as e:
+    raise e
+
   except Exception as e:
     stacktrace = traceback.format_exc()
     raise HTTPException(
@@ -809,9 +797,9 @@ async def ai_model_endpoint_create(
       "model_type": _normalize_model_type(data["model_type"] if "model_type" in data else None),
       "assistant_alias": data["assistant_alias"] if "assistant_alias" in data else "Knowledge Management Assistant",
       "provider": data["provider"] if "provider" in data else "openai-compatible",
-      "base_url": data["base_url"] if "base_url" in data else "",
+      "base_url": _validate_endpoint_url(data["base_url"] if "base_url" in data else ""),
       "api_path": data["api_path"] if "api_path" in data else "/v1",
-      "api_key": data["api_key"] if "api_key" in data else None,
+      "api_key": encrypt_secret(data["api_key"] if "api_key" in data else None),
       "model_name": data["model_name"] if "model_name" in data else "",
       "headers_json": data["headers_json"] if "headers_json" in data else None,
       "options_json": data["options_json"] if "options_json" in data else None,
@@ -824,9 +812,6 @@ async def ai_model_endpoint_create(
         "item": await _serialize_ai_model_endpoint(item),
       },
     }
-
-  except HTTPException as e:
-    raise e
 
   except HTTPException as e:
     raise e
@@ -864,6 +849,12 @@ async def ai_model_endpoint_update(
       raise HTTPException(status_code=404, detail="Model endpoint not found")
 
     data = await request.json()
+    embedding_configuration_fields = [
+      "model_type", "provider", "base_url", "api_path", "model_name", "headers_json", "options_json",
+    ]
+    old_embedding_configuration = tuple(
+      getattr(item, field) for field in embedding_configuration_fields
+    )
 
     if "name" in data:
       item.name = data["name"]
@@ -876,11 +867,13 @@ async def ai_model_endpoint_update(
     if "provider" in data:
       item.provider = data["provider"]
     if "base_url" in data:
-      item.base_url = data["base_url"]
+      item.base_url = _validate_endpoint_url(data["base_url"])
     if "api_path" in data:
       item.api_path = data["api_path"]
-    if "api_key" in data:
-      item.api_key = data["api_key"]
+    if data.get("clear_api_key") is True:
+      item.api_key = None
+    elif data.get("api_key") not in [None, ""]:
+      item.api_key = encrypt_secret(data["api_key"])
     if "model_name" in data:
       item.model_name = data["model_name"]
     if "headers_json" in data:
@@ -888,7 +881,43 @@ async def ai_model_endpoint_update(
     if "options_json" in data:
       item.options_json = data["options_json"]
 
+    new_embedding_configuration = tuple(
+      getattr(item, field) for field in embedding_configuration_fields
+    )
+    embedding_configuration_changed = (
+      old_embedding_configuration != new_embedding_configuration
+      and (
+        _normalize_model_type(old_embedding_configuration[0]) == MODEL_TYPE_EMBEDDING
+        or _normalize_model_type(item.model_type) == MODEL_TYPE_EMBEDDING
+      )
+    )
+    affected_party_ids = []
+    if embedding_configuration_changed:
+      affected_party_ids = await Party.filter(
+        default_embedding_model_id=item.id,
+      ).values_list("id", flat=True)
+      has_active_jobs = await FileIndexJob.filter(
+        party_id__in=affected_party_ids,
+        status__in=["QUEUED", "RUNNING"],
+      ).exists()
+      if has_active_jobs:
+        raise HTTPException(
+          status_code=409,
+          detail="Wait for queued/running indexing jobs before changing this embedding endpoint",
+        )
     await item.save()
+
+    if embedding_configuration_changed:
+      await File.filter(
+        party_id__in=affected_party_ids,
+        is_deleted=False,
+      ).update(
+        index_status="NOT_INDEXED",
+        index_error=None,
+        indexed_source_hash=None,
+        indexed_at=None,
+        latest_process_message="Embedding endpoint changed; select this file to enqueue indexing",
+      )
 
     return {
       "success": True,
@@ -933,8 +962,32 @@ async def ai_model_endpoint_delete(
     if not item:
       raise HTTPException(status_code=404, detail="Model endpoint not found")
 
+    affected_party_ids = await Party.filter(
+      default_embedding_model_id=item.id,
+    ).values_list("id", flat=True)
+    has_active_jobs = await FileIndexJob.filter(
+      party_id__in=affected_party_ids,
+      status__in=["QUEUED", "RUNNING"],
+    ).exists()
+    if has_active_jobs:
+      raise HTTPException(
+        status_code=409,
+        detail="Wait for queued/running indexing jobs before deleting this embedding endpoint",
+      )
+
     item.is_deleted = True
     await item.save()
+
+    await File.filter(
+      party_id__in=affected_party_ids,
+      is_deleted=False,
+    ).update(
+      index_status="NOT_INDEXED",
+      index_error=None,
+      indexed_source_hash=None,
+      indexed_at=None,
+      latest_process_message="Embedding endpoint removed; configure one before indexing",
+    )
 
     await Party.filter(default_llm_model_id=item.id).update(default_llm_model_id=None)
     await Party.filter(default_embedding_model_id=item.id).update(default_embedding_model_id=None)
@@ -960,55 +1013,3 @@ async def ai_model_endpoint_delete(
         "stacktrace": stacktrace,
       }
     )
-
-
-@router.post("/party/reembed_embeddings")
-async def party_reembed_embeddings(
-  request: Request,
-  id: str,
-):
-  try:
-    headers = request.headers
-    user, access_token = await fetch_loggedin_user_info(headers=headers)
-
-    ensure_can_manage_other_parties(user)
-
-    item = await Party.filter(
-      id=id,
-      is_disabled=False,
-      is_deleted=False,
-    ).first()
-
-    if not item:
-      raise HTTPException(status_code=404, detail="Party not found")
-
-    from src.controllers.functions.esbundle import es_chatllm as ESChatLLM
-
-    result = await ESChatLLM.bot_es_reembed_index(index_name=str(item.id))
-
-    return {
-      "success": True,
-      "message": TAG_C001,
-      "data": {
-        "item": await _serialize_party(item),
-        "result": result,
-      },
-    }
-
-  except HTTPException as e:
-    raise e
-
-  except Exception as e:
-    stacktrace = traceback.format_exc()
-    raise HTTPException(
-      status_code=500,
-      detail={
-        "message": TAG_E001,
-        "error": str(e),
-        "stacktrace": stacktrace,
-      }
-    )
-    
-    
-    
-    

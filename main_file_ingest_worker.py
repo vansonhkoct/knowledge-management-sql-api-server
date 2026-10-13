@@ -4,14 +4,14 @@ import copy
 from dotenv import load_dotenv
 from tortoise import Tortoise
 
-from database import TORTOISE_ORM
-from src.controllers.functions.file_ingest.service import run_file_ingest_worker
-
-
 load_dotenv(
   verbose=True,
   override=True,
 )
+
+from database import TORTOISE_ORM, should_generate_schemas
+from src.controllers.functions._generic.secretutils import migrate_legacy_ai_endpoint_secrets
+from src.controllers.functions.file_ingest.service import run_file_ingest_worker
 
 
 async def main():
@@ -23,6 +23,9 @@ async def main():
   dbConfig["apps"]["models"]["default_connection"] = "default"
 
   await Tortoise.init(config=dbConfig)
+  if should_generate_schemas():
+    await Tortoise.generate_schemas(safe=True)
+  await migrate_legacy_ai_endpoint_secrets()
   try:
     await run_file_ingest_worker()
   finally:
@@ -30,4 +33,7 @@ async def main():
 
 
 if __name__ == '__main__':
-  asyncio.run(main())
+  try:
+    asyncio.run(main())
+  except KeyboardInterrupt:
+    pass

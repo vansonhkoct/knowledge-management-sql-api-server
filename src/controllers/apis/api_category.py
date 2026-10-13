@@ -8,9 +8,11 @@ from tortoise.exceptions import IntegrityError
 from tortoise.contrib.fastapi import HTTPNotFoundError
 
 from src.controllers.functions._generic.modelutils import makeObjectID
+from src.controllers.functions._generic.queryutils import render_debug_sql
 
 from src.models.master import Category, KMCategory
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from src.controllers.functions.user.permissions import PermissionCode, ensure_permission
 
 router = APIRouter(prefix="/api/v1")
 
@@ -63,11 +65,7 @@ async def fetch(
         .count()
     )
 
-    tsql = (
-      Category
-        .filter(Q(**filters))
-        .sql()
-    )
+    tsql = render_debug_sql(Category.filter(Q(**filters)))
 
     return {
       "success": True,
@@ -149,6 +147,7 @@ async def create(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.CATEGORY_MANAGE)
     data = await request.json()
     
     payload = {}
@@ -192,6 +191,7 @@ async def remove(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.CATEGORY_MANAGE)
     
     filters = {}
     filters["party_id"] = user.party_id if user != None else None
@@ -242,6 +242,7 @@ async def update(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.CATEGORY_MANAGE)
     
     filters = {}
     filters["party_id"] = user.party_id if user != None else None
@@ -293,6 +294,4 @@ async def update(
       }
     )
     
-
-
 

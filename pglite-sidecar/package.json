@@ -1,0 +1,19 @@
+{
+  "name": "knowledge-management-pglite-sidecar",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "smoke": "node src/smoke.js",
+    "smoke:http": "node src/http-smoke.js",
+    "restore": "node src/restore.js"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-pgvector": "0.0.9",
+    "@electric-sql/pglite-socket": "0.2.11"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

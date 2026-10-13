@@ -2,6 +2,7 @@ import traceback
 import json
 from fastapi import APIRouter, File as FastAPIFile, UploadFile, Form, Request
 from fastapi import HTTPException
+from fastapi.responses import FileResponse
 from typing import Annotated
 from tortoise.expressions import Q
 
@@ -9,22 +10,27 @@ from src.controllers.functions._generic.fileutils import UploadFileRecord
 from src.controllers.functions._generic.fileutils import upload_file_write_to_upload_folder
 from src.controllers.functions._generic.fileutils import make_file_ref_from_plaintext
 from src.controllers.functions._generic.fileutils import remove_file_from_upload_folder
-from src.controllers.functions.file.file import bootstrapImportESBundle
+from src.controllers.functions._generic.fileutils import resolve_uploaded_file_path
+from src.controllers.functions._generic.queryutils import render_debug_sql
 from src.controllers.functions.file.file import create_entry_file
 from src.controllers.functions.file.file import on_update_file
 from src.controllers.functions.file.file import on_remove_file
 from src.controllers.functions.file.file import fetch_es_docs
-from src.controllers.functions.file_ingest import FILE_STATUS_ERROR
 from src.controllers.functions.file_ingest import FILE_STATUS_INDEXED
-from src.controllers.functions.file_ingest import FILE_STATUS_QUEUED
 from src.controllers.functions.file_ingest import FILE_STATUS_UPLOADING
+from src.controllers.functions.file_ingest import FILE_STATUS_UPLOADED
 from src.controllers.functions.file_ingest import create_file_process_log
 from src.controllers.functions.file_ingest import enqueue_file_ingest
+from src.controllers.functions.file_ingest import is_pdf_file
+from src.controllers.functions.file_ingest import serialize_file_index_job
 from src.controllers.functions.file_ingest import update_file_status
 from src.controllers.functions.file_ingest import serialize_file_process_log
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from src.controllers.functions.user.userscope import user_has_permission
+from src.controllers.functions.user.userscope import resolve_target_party_id
+from src.controllers.functions.user.permissions import PermissionCode
 
-from src.models.master import File, KMFile
+from src.models.master import File, FileIndexJob, KMFile
 from src.models.master import FileProcessLog
 from src.models.master import Category, KMCategory
 
@@ -34,31 +40,21 @@ router = APIRouter(prefix="/api/v1")
 TAG_C001 = "C_FILE001"
 TAG_E001 = "E_FILE001"
 
-@router.post("/file/initializeES")
-async def initializeES(
-  request: Request,
-):
-  try:
-    bootstrapImportESBundle()
-    
-    return {
-      "success": True,
-      "message": TAG_C001,
-      "data": {
-      },
-    }
 
-  except Exception as e:
-    stacktrace = traceback.format_exc()
-    raise HTTPException(
-      status_code=500,
-      detail={
-        "message": TAG_E001,
-        "error": str(e),
-        "stacktrace": stacktrace,
-      }
-    )
+async def _accessible_category_ids(user) -> list[str]:
+  if user.role is None:
+    return []
+  await user.role.fetch_related("accessible_categorys")
+  return [
+    str(item.id)
+    for item in user.role.accessible_categorys
+    if not item.is_disabled and not item.is_deleted
+  ]
 
+
+def _ensure_file_manager(user):
+  if not user_has_permission(user, PermissionCode.FILE_MANAGE):
+    raise HTTPException(status_code=403, detail="Permission denied")
 
 @router.post("/file/upload")
 async def upload_and_create(
@@ -76,8 +72,19 @@ async def upload_and_create(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    _ensure_file_manager(user)
 
     party_id = user.party_id
+
+    if category_id not in [None, ""]:
+      category = await Category.filter(
+        id=category_id,
+        party_id=party_id,
+        is_disabled=False,
+        is_deleted=False,
+      ).first()
+      if category is None:
+        raise HTTPException(status_code=400, detail="Category not found")
 
     if (document_tags is not None):
       document_tags = [ tag.strip() for tag in document_tags.split(",") ]
@@ -108,8 +115,11 @@ async def upload_and_create(
       document_userdata = document_userdata,
       alias = alias,
       file = file,
+      requested_by_user_id = user.id,
     )
 
+  except HTTPException:
+    raise
   except Exception as e:
     stacktrace = traceback.format_exc()
     raise HTTPException(
@@ -133,6 +143,7 @@ async def upload_and_create_file_from_file(
   document_userdata = None,
   alias: str = None,
   file: UploadFile = FastAPIFile(),
+  requested_by_user_id: str = None,
 ):
   try:
     file_ref, filebytes = await upload_file_write_to_upload_folder(
@@ -164,38 +175,21 @@ async def upload_and_create_file_from_file(
       },
     )
 
-    try:
-      await enqueue_file_ingest(item.id)
+    if is_pdf_file(item):
+      await enqueue_file_ingest(item.id, requested_by_user_id=requested_by_user_id)
+    else:
       await update_file_status(
         item,
-        FILE_STATUS_QUEUED,
-        latest_process_message="Queued for indexing",
+        FILE_STATUS_UPLOADED,
+        latest_process_message="Stored but not indexed; PDF files only",
         clear_ingest_error=True,
       )
       await create_file_process_log(
         item,
-        stage="QUEUE",
-        status="QUEUED",
-        message="File queued for indexing",
+        stage="INDEXING",
+        status="NOT_INDEXED",
+        message="Stored but not indexed; PDF files only",
       )
-    except Exception as queue_error:
-      stacktrace = traceback.format_exc()
-      await update_file_status(
-        item,
-        FILE_STATUS_ERROR,
-        latest_process_message=str(queue_error),
-        ingest_error=stacktrace,
-      )
-      await create_file_process_log(
-        item,
-        stage="QUEUE",
-        status="ERROR",
-        message=str(queue_error),
-        details_json={
-          "stacktrace": stacktrace,
-        },
-      )
-      raise queue_error
 
     return {
       "success": True,
@@ -252,38 +246,18 @@ async def upload_and_create_file_from_plaintext(
       },
     )
 
-    try:
-      await enqueue_file_ingest(item.id)
-      await update_file_status(
-        item,
-        FILE_STATUS_QUEUED,
-        latest_process_message="Queued for indexing",
-        clear_ingest_error=True,
-      )
-      await create_file_process_log(
-        item,
-        stage="QUEUE",
-        status="QUEUED",
-        message="File queued for indexing",
-      )
-    except Exception as queue_error:
-      stacktrace = traceback.format_exc()
-      await update_file_status(
-        item,
-        FILE_STATUS_ERROR,
-        latest_process_message=str(queue_error),
-        ingest_error=stacktrace,
-      )
-      await create_file_process_log(
-        item,
-        stage="QUEUE",
-        status="ERROR",
-        message=str(queue_error),
-        details_json={
-          "stacktrace": stacktrace,
-        },
-      )
-      raise queue_error
+    await update_file_status(
+      item,
+      FILE_STATUS_UPLOADED,
+      latest_process_message="Stored but not indexed; PDF files only",
+      clear_ingest_error=True,
+    )
+    await create_file_process_log(
+      item,
+      stage="INDEXING",
+      status="NOT_INDEXED",
+      message="Stored but not indexed; PDF files only",
+    )
 
     return {
       "success": True,
@@ -306,6 +280,7 @@ async def fetch(
   page: int = 0,
   limit: int = 10,
   category_id: str = None,
+  index_status: str = None,
 ):
   try:
     headers = request.headers
@@ -326,6 +301,10 @@ async def fetch(
     filters["party_id"] = user.party_id if user != None else None
     filters["is_disabled"] = False
     filters["is_deleted"] = False
+    if not user_has_permission(user, PermissionCode.FILE_MANAGE):
+      filters["category_id__in"] = await _accessible_category_ids(user)
+    if index_status not in [None, ""]:
+      filters["index_status"] = index_status
 
     items = (
       await File
@@ -333,18 +312,14 @@ async def fetch(
         .offset(offset)
         .limit(limit)
     )
-    
+
     total_count = (
       await File
         .filter(Q(**filters))
         .count()
     )
 
-    tsql = (
-      File
-        .filter(Q(**filters))
-        .sql()
-    )
+    tsql = render_debug_sql(File.filter(Q(**filters)))
 
     return {
       "success": True,
@@ -360,7 +335,8 @@ async def fetch(
         "items": items,
       },
     }
-  
+  except HTTPException:
+    raise
   except Exception as e:
     stacktrace = traceback.format_exc()
     raise HTTPException(
@@ -371,6 +347,99 @@ async def fetch(
         "stacktrace": stacktrace,
       }
     )
+
+
+@router.post("/file/index-jobs")
+async def create_file_index_jobs(request: Request):
+  try:
+    user, access_token = await fetch_loggedin_user_info(headers=request.headers)
+    if not user_has_permission(user, PermissionCode.FILE_INDEX):
+      raise HTTPException(status_code=403, detail="Permission denied")
+
+    data = await request.json()
+    file_ids = list(dict.fromkeys(str(item) for item in (data.get("file_ids") or [])))
+    if not file_ids:
+      raise HTTPException(status_code=400, detail="file_ids is required")
+    if len(file_ids) > 100:
+      raise HTTPException(status_code=400, detail="At most 100 files can be queued at once")
+
+    files = await File.filter(
+      id__in=file_ids,
+      party_id=user.party_id,
+      is_disabled=False,
+      is_deleted=False,
+    )
+    files_by_id = {str(item.id): item for item in files}
+    results = []
+
+    for file_id in file_ids:
+      item = files_by_id.get(file_id)
+      if item is None:
+        results.append({"file_id": file_id, "queued": False, "error": "File not found"})
+        continue
+      try:
+        job = await enqueue_file_ingest(item.id, requested_by_user_id=user.id)
+        results.append({
+          "file_id": file_id,
+          "queued": True,
+          "job": await serialize_file_index_job(job),
+        })
+      except ValueError as error:
+        results.append({"file_id": file_id, "queued": False, "error": str(error)})
+
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": {"results": results},
+    }
+  except HTTPException:
+    raise
+  except Exception as error:
+    raise HTTPException(status_code=500, detail={
+      "message": TAG_E001,
+      "error": str(error),
+      "stacktrace": traceback.format_exc(),
+    })
+
+
+@router.get("/file/index-jobs")
+async def fetch_file_index_jobs(
+  request: Request,
+  page: int = 0,
+  limit: int = 50,
+  file_id: str = None,
+  status: str = None,
+):
+  try:
+    user, access_token = await fetch_loggedin_user_info(headers=request.headers)
+    if not user_has_permission(user, PermissionCode.FILE_INDEX):
+      raise HTTPException(status_code=403, detail="Permission denied")
+
+    filters = {"party_id": user.party_id}
+    if file_id not in [None, ""]:
+      filters["file_id"] = file_id
+    if status not in [None, ""]:
+      filters["status"] = status
+
+    query = FileIndexJob.filter(**filters)
+    total_count = await query.count()
+    items = await query.order_by("-created_at").offset(page * limit).limit(limit)
+    return {
+      "success": True,
+      "message": TAG_C001,
+      "data": {
+        "pagination": {"page": page, "limit": limit, "total_count": total_count},
+        "items": [await serialize_file_index_job(item) for item in items],
+      },
+    }
+  except HTTPException:
+    raise
+  except Exception as error:
+    raise HTTPException(status_code=500, detail={
+      "message": TAG_E001,
+      "error": str(error),
+      "stacktrace": traceback.format_exc(),
+    })
 
 
 
@@ -389,9 +458,11 @@ async def fetchSingle(
     
     filters = {}
     filters["id"] = id
-    filters["party_id"] = party_id if party_id != None else (user.party_id if user != None else None)
+    filters["party_id"] = resolve_target_party_id(user, party_id)
     filters["is_disabled"] = False
     filters["is_deleted"] = False
+    if not user_has_permission(user, PermissionCode.FILE_MANAGE):
+      filters["category_id__in"] = await _accessible_category_ids(user)
 
     item = (
       await File
@@ -399,7 +470,8 @@ async def fetchSingle(
         .prefetch_related()
         .first()
     )
-    
+
+
     es_docs = []
     process_logs = []
     if (item != None):
@@ -422,7 +494,9 @@ async def fetchSingle(
         "process_logs": process_logs,
       },
     }
-  
+
+  except HTTPException:
+    raise
   except Exception as e:
     stacktrace = traceback.format_exc()
     raise HTTPException(
@@ -435,7 +509,26 @@ async def fetchSingle(
     )
 
 
-
+@router.get("/file/content")
+async def fetch_file_content(request: Request, id: str):
+  user, access_token = await fetch_loggedin_user_info(headers=request.headers)
+  filters = {
+    "id": id,
+    "party_id": user.party_id,
+    "is_disabled": False,
+    "is_deleted": False,
+  }
+  if not user_has_permission(user, PermissionCode.FILE_MANAGE):
+    filters["category_id__in"] = await _accessible_category_ids(user)
+  item = await File.filter(**filters).first()
+  if item is None:
+    raise HTTPException(status_code=404, detail="File not found")
+  return FileResponse(
+    resolve_uploaded_file_path(item.filename),
+    media_type=item.mime_type or "application/octet-stream",
+    filename=item.alias or item.filename,
+    content_disposition_type="inline",
+  )
 
 
 @router.delete("/file")
@@ -446,6 +539,7 @@ async def remove(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    _ensure_file_manager(user)
 
     filters = {}
     filters["party_id"] = user.party_id if user != None else None
@@ -460,11 +554,10 @@ async def remove(
     if not item:
       raise HTTPException(status_code=404, detail="File not found")
 
-    if item.status == FILE_STATUS_INDEXED:
-      await on_remove_file(
-        party_id=user.party_id,
-        file=item,
-      )
+    await on_remove_file(
+      party_id=user.party_id,
+      file=item,
+    )
 
     item.is_deleted = True
     await item.save()
@@ -490,6 +583,8 @@ async def remove(
     }
     
     
+  except HTTPException:
+    raise
   except Exception as e:
     stacktrace = traceback.format_exc()
     raise HTTPException(
@@ -511,6 +606,7 @@ async def update(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    _ensure_file_manager(user)
 
     filters = {}
     filters["party_id"] = user.party_id if user != None else None
@@ -529,6 +625,15 @@ async def update(
 
 
     if "category_id" in data:
+      if data["category_id"] not in [None, ""]:
+        category = await Category.filter(
+          id=data["category_id"],
+          party_id=user.party_id,
+          is_disabled=False,
+          is_deleted=False,
+        ).first()
+        if category is None:
+          raise HTTPException(status_code=400, detail="Category not found")
       item.category_id = data["category_id"]
       if item.status == FILE_STATUS_INDEXED:
         await on_update_file(
@@ -554,6 +659,8 @@ async def update(
     }
     
     
+  except HTTPException:
+    raise
   except Exception as e:
     stacktrace = traceback.format_exc()
     raise HTTPException(
@@ -565,4 +672,3 @@ async def update(
       }
     )
     
-

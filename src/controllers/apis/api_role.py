@@ -6,10 +6,16 @@ from tortoise.expressions import Q
 
 from src.controllers.functions._generic.fileutils import UploadFileRecord, upload_file_write_to_upload_folder
 from src.controllers.functions.file.file import create_entry_file
+from src.controllers.functions._generic.queryutils import render_debug_sql
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
 from src.controllers.functions.user.userscope import resolve_target_party_id
+from src.controllers.functions.user.permissions import (
+  PermissionCode,
+  ensure_permission,
+  normalize_permission_code,
+)
 
-from src.models.master import User, Role, Permission
+from src.models.master import User, Role
 
 
 router = APIRouter(prefix="/api/v1")
@@ -28,6 +34,7 @@ async def role_create(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.ROLE_MANAGE)
     data = await request.json()
 
     target_party_id = resolve_target_party_id(
@@ -92,7 +99,10 @@ async def fetch(
     filters["is_deleted"] = False
     filters["party_id"] = target_party_id
     if permission_code != None:
-      filters["permissions__code"] = permission_code
+      try:
+        filters["permission_assignments__permission_code"] = normalize_permission_code(permission_code)
+      except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
     items = (
       await Role
@@ -107,11 +117,7 @@ async def fetch(
         .count()
     )
 
-    tsql = (
-      Role
-        .filter(Q(**filters))
-        .sql()
-    )
+    tsql = render_debug_sql(Role.filter(Q(**filters)))
 
     return {
       "success": True,
@@ -157,6 +163,7 @@ async def fetchSingle(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.ROLE_MANAGE)
     target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
     
     filters = {}
@@ -202,6 +209,7 @@ async def update(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.ROLE_MANAGE)
     target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
 
     item = await Role.filter(
@@ -257,6 +265,7 @@ async def remove(
   try:
     headers = request.headers
     user, access_token = await fetch_loggedin_user_info(headers=headers)
+    ensure_permission(user, PermissionCode.ROLE_MANAGE)
     target_party_id = resolve_target_party_id(user=user, requested_party_id=party_id)
 
     item = await Role.filter(

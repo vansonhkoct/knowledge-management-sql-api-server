@@ -1,15 +1,4 @@
-async def serialize_permission(permission):
-  if permission is None:
-    return None
-
-  return {
-    "id": str(permission.id),
-    "name": permission.name,
-    "desc": permission.desc,
-    "code": permission.code,
-    "is_disabled": permission.is_disabled,
-    "is_deleted": permission.is_deleted,
-  }
+from src.controllers.functions.user.permissions import serialize_permission
 
 
 async def serialize_category(category):
@@ -32,7 +21,7 @@ async def serialize_role(role):
   if role is None:
     return None
 
-  await role.fetch_related("permissions", "accessible_categorys")
+  await role.fetch_related("permission_assignments", "accessible_categorys")
 
   return {
     "id": str(role.id),
@@ -40,7 +29,10 @@ async def serialize_role(role):
     "desc": role.desc,
     "code": role.code,
     "party_id": str(role.party_id) if role.party_id else None,
-    "permissions": [await serialize_permission(item) for item in role.permissions],
+    "permissions": [
+      serialize_permission(item.permission_code)
+      for item in role.permission_assignments
+    ],
     "accessible_categorys": [await serialize_category(item) for item in role.accessible_categorys],
     "is_disabled": role.is_disabled,
     "is_deleted": role.is_deleted,

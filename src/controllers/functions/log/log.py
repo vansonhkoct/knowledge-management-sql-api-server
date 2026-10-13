@@ -1,6 +1,7 @@
 
 import json
 import asyncio
+import os
 from src.models.master import Log
 from src.models.master import User
 from src.models.master import UserSession
@@ -35,23 +36,29 @@ def add_log_apillm(
   input_llm_max_token: int,
   es_result_ids: dict,
   ):
+    include_sensitive_content = os.getenv("LOG_SENSITIVE_AI_CONTENT", "0") == "1"
     # Add log
     asyncio.create_task(
       Log.create(**{
         "type": _LOGTYPE_CHATLLM_API,
         "field1": json.dumps({
           "index_name": index_name,
-          "question": question,
+          "question": question if include_sensitive_content else None,
+          "question_length": len(question or ""),
         }, ensure_ascii=False),
         "field2": json.dumps({
           "data": {
-            "answer_result": llm_answer_result["answer_result"] if llm_answer_result is not None and "answer_result" in llm_answer_result else None,
+            "answer_result": (
+              llm_answer_result["answer_result"]
+              if include_sensitive_content and llm_answer_result is not None and "answer_result" in llm_answer_result
+              else None
+            ),
           },
           "suggested_token": suggested_token,
           "prompt_token": prompt_token,
           "input_llm_max_token": input_llm_max_token,
           "es_result_ids": es_result_ids,
         }, ensure_ascii=False),
-        "field3": prompt,
+        "field3": prompt if include_sensitive_content else None,
       })
     )

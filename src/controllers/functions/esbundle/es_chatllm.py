@@ -2,12 +2,13 @@
 from .include.pymupdf.pymupdf import extract_pdf_file_to_text, async_extract_pdf_file_to_text
 from .include import ConfigParams
 from .include.EmbeddingsBundle import EmbeddingsBundle
-from .include.ElasticSearchController import ElasticSearchController
 from .include.ChatLLMController import ChatLLMController
 from .include.ElasticSearchDao.ESVo import ESVoDocSearch, ESVoDocInsert
 from .include.ChatLLMDao.LLMVo import LLMVoAskQuestion
 from .include.ElasticSearchDao import _constants
 from src.schemas.master import Party, AIModelEndpoint
+from src.controllers.functions._generic.secretutils import decrypt_secret
+from src.controllers.functions._generic.endpointutils import validate_ai_endpoint_url
 
 
 import asyncio
@@ -38,47 +39,17 @@ async def _resolve_model_endpoint(
 ):
     party = await _resolve_party(party_id)
 
-    if model_type == MODEL_TYPE_LLM and preferred_model_name not in [None, ""]:
-        preferred = await AIModelEndpoint.filter(
-            is_disabled=False,
-            is_deleted=False,
-            model_type=MODEL_TYPE_LLM,
-            model_name=preferred_model_name,
-        ).first()
-
-        if preferred is not None:
-            return preferred
-
-        preferred = await AIModelEndpoint.filter(
-            is_disabled=False,
-            is_deleted=False,
-            model_type=MODEL_TYPE_LLM,
-            name=preferred_model_name,
-        ).first()
-
-        if preferred is not None:
-            return preferred
-
-        preferred = await AIModelEndpoint.filter(
-            is_disabled=False,
-            is_deleted=False,
-            model_type=MODEL_TYPE_LLM,
-            id=preferred_model_name,
-        ).first()
-
-        if preferred is not None:
-            return preferred
-
     endpoint = party.default_llm_model if model_type == MODEL_TYPE_LLM else party.default_embedding_model
-    if endpoint is None:
-        endpoint = await AIModelEndpoint.filter(
-            is_disabled=False,
-            is_deleted=False,
-            model_type=model_type,
-        ).order_by("created_at").first()
 
     if endpoint is None:
-        raise ValueError(f"Party {party_id} is missing a default {model_type.lower()} model")
+      raise ValueError(f"Party {party_id} is missing a default {model_type.lower()} model")
+
+    if preferred_model_name not in [None, ""]:
+      allowed_names = {str(endpoint.id), endpoint.name, endpoint.model_name}
+      if preferred_model_name not in allowed_names:
+        raise ValueError("The requested model is not assigned to this party")
+
+    validate_ai_endpoint_url(endpoint.base_url)
 
     return endpoint
 
@@ -87,7 +58,7 @@ def _build_embedding_bundle(endpoint: AIModelEndpoint):
     return EmbeddingsBundle(
         base_url=endpoint.base_url,
         model_name=endpoint.model_name,
-        api_key=endpoint.api_key,
+        api_key=decrypt_secret(endpoint.api_key),
         api_path=endpoint.api_path,
         headers_json=endpoint.headers_json,
         options_json=endpoint.options_json,
@@ -98,7 +69,7 @@ def _build_llm_controller(endpoint: AIModelEndpoint):
     return ChatLLMController(
         base_url=endpoint.base_url,
         model_name=endpoint.model_name,
-        api_key=endpoint.api_key,
+        api_key=decrypt_secret(endpoint.api_key),
         api_path=endpoint.api_path,
         headers_json=endpoint.headers_json,
         options_json=endpoint.options_json,
@@ -107,6 +78,9 @@ def _build_llm_controller(endpoint: AIModelEndpoint):
 
 
 def _build_es_controller(embedding=None):
+    # Keep the retired Elasticsearch path installable without making its heavy
+    # dependencies part of the default PGlite runtime.
+    from .include.ElasticSearchController import ElasticSearchController
     return ElasticSearchController(embedding=embedding)
 
 
@@ -418,6 +392,3 @@ async def bot_llm_stop_answering(
         return True
 
     res = await asyncio.get_running_loop().run_in_executor(None, fn)
-
-
-

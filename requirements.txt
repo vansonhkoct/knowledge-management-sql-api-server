@@ -1,44 +1,26 @@
-pytz==2024.1
-pyreadline3==3.4.1
-tqdm==4.66.2
-flask_cors===4.0.0
-mysql-connector-python==8.3.0
-pymysql==1.1.0
-dbutils==3.1.0
-tortoise-orm==0.20.0
-asyncmy==0.2.9
-aerich==0.7.2
+# Web API and process runtime
 fastapi==0.111.0
 pydantic==1.10.20
 python-multipart==0.0.9
 python-dotenv==1.0.1
 uvicorn[standard]==0.30.6
-pytest==8.2.0
-asgi_lifespan==2.1.0
 httpx==0.27.0
-bson==0.5.10
-psutil==5.9.8
+
+# Application database: MySQL in production, SQLite in development/tests
+tortoise-orm==0.20.0
+asyncmy==0.2.9
+aiosqlite==0.17.0
+aerich==0.7.2
+
+# Authentication and provider-secret encryption
 bcrypt==4.1.2
-aiomysql==0.2.0
-langchain==0.1.17
-pypinyin==0.51.0
-werkzeug==3.0.2
-pdf2image==1.17.0
-img2table==1.2.11
+cryptography==43.0.3
+
+# External OpenAI-compatible providers and PDF extraction
 requests==2.31.0
-matplotlib==3.9.2
-pdfminer==20191125
-pdfminer.six==20231228
-pikepdf==8.15.1
-opencv-python==4.8.1.78
-opencv-contrib-python==4.8.1.78
-elasticsearch==8.13.1
 opencc==1.1.9
-websockets==12.0
-nltk==3.8.1
-tiktoken==0.7.0
 pymupdf4llm==0.0.10
 PyMuPDF==1.24.9
-pillow_heif==0.18.0
-setuptools==72.2.0
+
+# Queue/event transport and PGlite sidecar client
 redis==5.0.8

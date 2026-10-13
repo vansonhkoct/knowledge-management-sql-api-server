@@ -1,6 +1,6 @@
 import os
 import traceback
-from fastapi import APIRouter, File as FastAPIFile, UploadFile, Form, Request, Body
+from fastapi import APIRouter, Depends, File as FastAPIFile, UploadFile, Form, Request, Body
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
@@ -12,8 +12,6 @@ from datetime import datetime
 import json
 import math
 
-import nltk
-
 from src.controllers.functions._generic.fileutils import UploadFileRecord
 from src.controllers.functions._generic.fileutils import upload_file_write_to_upload_folder
 from src.controllers.functions._generic.fileutils import remove_file_from_upload_folder
@@ -22,6 +20,8 @@ from src.controllers.functions.log.log import add_log_apillm
 from src.controllers.functions.file.file import bootstrapImportESBundle
 from src.controllers.functions.file.file import fetch_es_docs
 from src.controllers.functions.user.userauth_session import fetch_loggedin_user_info
+from src.controllers.functions.user.userscope import user_has_permission
+from src.controllers.functions.user.permissions import PermissionCode
 from src.controllers.functions.user.userauth_email import make_password_hash, check_password_hash
 from src.controllers.functions.ws.WebsocketConnectionManager import wsConnectionManager
 
@@ -35,7 +35,6 @@ ESVoDocSearch = None
 ESVoDocInsert = None
 LLMVoAskQuestion = None
 llm_model_enable_api = None
-_nltk_bootstrapped = False
 
 
 def _bootstrap_file_estest_dependencies():
@@ -44,7 +43,6 @@ def _bootstrap_file_estest_dependencies():
   global ESVoDocInsert
   global LLMVoAskQuestion
   global llm_model_enable_api
-  global _nltk_bootstrapped
 
   if ESChatLLM is None:
     from src.controllers.functions.esbundle import es_chatllm as _ESChatLLM
@@ -58,13 +56,17 @@ def _bootstrap_file_estest_dependencies():
     LLMVoAskQuestion = _LLMVoAskQuestion
     llm_model_enable_api = _llm_model_enable_api
 
-  if not _nltk_bootstrapped:
-    nltk.download('punkt_tab', quiet=True)
-    nltk.download('averaged_perceptron_tagger_eng', quiet=True)
-    _nltk_bootstrapped = True
 
 
-router = APIRouter(prefix="/api/v1")
+async def _guard_diagnostic_routes(request: Request):
+  if os.getenv("APP_ENV", "development").lower() != "production":
+    return
+  if request.url.path == "/api/v1/chat/ask":
+    return
+  raise HTTPException(status_code=404, detail="Not found")
+
+
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(_guard_diagnostic_routes)])
 
 
 
@@ -564,23 +566,60 @@ async def test_bot_es_doc_migrate_update_all_data_without_data_strategy_to_becom
 
 
 
-is_busy: bool = False
-
-
-
-
 @router.post("/file_estest/test_llm_ask_question")
+@router.post("/chat/ask")
 async def test_llm_ask_question(
   request: Request,
 ):
   try:
+    user, access_token = await fetch_loggedin_user_info(headers=request.headers)
+    if not user_has_permission(user, PermissionCode.KNOWLEDGE_SEARCH):
+      raise HTTPException(status_code=403, detail="Permission denied")
+
     data = await request.json()
+    data["index_name"] = str(user.party_id)
+
+    if not user_has_permission(user, PermissionCode.FILE_MANAGE):
+      await user.role.fetch_related("accessible_categorys")
+      allowed_category_ids = {
+        str(item.id)
+        for item in user.role.accessible_categorys
+        if not item.is_disabled and not item.is_deleted
+      }
+      requested_category_ids = data.get("document_category_ids")
+      if requested_category_ids:
+        data["document_category_ids"] = [
+          str(item_id)
+          for item_id in requested_category_ids
+          if str(item_id) in allowed_category_ids
+        ]
+        data["_has_retrieval_scope"] = bool(data["document_category_ids"])
+      else:
+        data["document_category_ids"] = sorted(allowed_category_ids)
+        data["_has_retrieval_scope"] = bool(allowed_category_ids)
+    else:
+      data["_has_retrieval_scope"] = True
+
+    readiness_query = File.filter(
+      party_id=user.party_id,
+      is_disabled=False,
+      is_deleted=False,
+    ).exclude(index_status="INDEXED")
+    if data.get("document_file_ids"):
+      readiness_query = readiness_query.filter(id__in=data["document_file_ids"])
+    if data.get("document_category_ids"):
+      readiness_query = readiness_query.filter(category_id__in=data["document_category_ids"])
+    data["_unindexed_file_count"] = await readiness_query.count() if data.get("_has_retrieval_scope") else 0
+
     is_streaming = data["is_streaming"] if "is_streaming" in data else False
     
     if is_streaming:
-      return StreamingResponse(generator_test_bot_llm_ask_question(request=request, is_streaming=True), media_type="text/event-stream")
+      return StreamingResponse(
+        generator_test_bot_llm_ask_question(request=request, data=data, is_streaming=True),
+        media_type="text/event-stream",
+      )
     else:
-      async_gen = generator_test_bot_llm_ask_question(request=request)
+      async_gen = generator_test_bot_llm_ask_question(request=request, data=data)
       async_gen_response = None
 
       async for response in async_gen:
@@ -589,6 +628,8 @@ async def test_llm_ask_question(
 
       return async_gen_response
 
+  except HTTPException:
+    raise
   except Exception as e:
     stacktrace = traceback.format_exc()
     raise HTTPException(
@@ -609,6 +650,7 @@ async def test_llm_ask_question(
 
 async def generator_test_bot_llm_ask_question(
   request: Request,
+  data: dict,
   is_streaming: bool = False,
 ):
   _bootstrap_file_estest_dependencies()
@@ -621,37 +663,11 @@ async def generator_test_bot_llm_ask_question(
       }
     )
   
-  data = await request.json()
   request_loop = asyncio.get_running_loop()
   stream_queue = asyncio.Queue() if is_streaming else None
   retrieval_enabled = data["retrieval_enabled"] if "retrieval_enabled" in data else True
   conversation_history = data["history"] if "history" in data else []
     
-  global is_busy
-
-  retry_count = 0
-  max_retries = (data["max_retries"] if "max_retries" in data else 10) or 10
-  retry_delay = 2
-
-  while is_busy and retry_count < max_retries:
-      print(f" -- B({retry_count+1}/{max_retries}) -- ", end = "", flush=True)
-      await asyncio.sleep(retry_delay)
-      retry_count += 1
-
-  if is_busy:
-    print(f"\n\nServer busy! Someone is forfeiting test_bot_llm_ask_question -- B({retry_count+1}/{max_retries}) -- ")
-    raise HTTPException(
-      status_code=400,
-      detail={
-        "message": TAG_E002,
-        "error": f"Server busy (Attempt {retry_count+1}/{max_retries})",
-      }
-    )
-
-
-  is_busy = True
-
-
   try:
     vo_es = None
     es_result = []
@@ -659,7 +675,7 @@ async def generator_test_bot_llm_ask_question(
     group_filtered_es_result = {}
     aggregated_context = []
 
-    if retrieval_enabled:
+    if retrieval_enabled and data.get("_has_retrieval_scope", False):
       vo_es = ESVoDocSearch(
         index_name = data["index_name"],
         question = data["question"] if "question" in data else None,
@@ -683,12 +699,27 @@ async def generator_test_bot_llm_ask_question(
         should_match_document_text = data["should_match_document_text"] if "should_match_document_text" in data else 0,
       )
 
-      es_result = await ESChatLLM.bot_es_search_multi_vector(
-        vo=vo_es,
-      )
+      if os.getenv("VECTOR_STORE_BACKEND", "pglite").lower() == "pglite":
+        from src.controllers.functions.rag.service import search_knowledge
+        es_result = await search_knowledge(
+          party_id=data["index_name"],
+          question=data.get("question") or "",
+          category_ids=data.get("document_category_ids"),
+          file_ids=data.get("document_file_ids"),
+          exclude_file_ids=data.get("exclude_document_file_ids"),
+          limit=data.get("k", 10),
+        )
+      else:
+        es_result = await ESChatLLM.bot_es_search_multi_vector(
+          vo=vo_es,
+        )
 
 
     def do_filter_es_result_item(it):
+      if os.getenv("VECTOR_STORE_BACKEND", "pglite").lower() == "pglite":
+        minimum_similarity = os.getenv("PGLITE_MIN_COSINE_SIMILARITY")
+        return minimum_similarity in [None, ""] or float(it["score"]) >= float(minimum_similarity)
+
       if os.getenv("ES_REMOVE_LOWSCORE_SEARCH_RESULTS") == "1":
         # if it["score"] / it["record_max_score"] < 0.75:
         #   return False
@@ -702,18 +733,17 @@ async def generator_test_bot_llm_ask_question(
         return True
     
 
-      filtered_es_result = [ it for it in es_result if ( do_filter_es_result_item(it) )]
-      
-      
-      # Group Using a dictionary-based approach
-      for it in filtered_es_result:
-        if it["file_id"] not in group_filtered_es_result:
-          group_filtered_es_result[it["file_id"]] = []
+    filtered_es_result = [it for it in es_result if do_filter_es_result_item(it)]
 
-        group_filtered_es_result[it["file_id"]].append(it)
-    
-      for key_file_id in group_filtered_es_result.keys():
-        document_header = f"""
+    # Group results by file so each source has a single header and footer.
+    for it in filtered_es_result:
+      if it["file_id"] not in group_filtered_es_result:
+        group_filtered_es_result[it["file_id"]] = []
+
+      group_filtered_es_result[it["file_id"]].append(it)
+
+    for key_file_id in group_filtered_es_result.keys():
+      document_header = f"""
 
 
 ---------
@@ -723,10 +753,9 @@ async def generator_test_bot_llm_ask_question(
 
 """
 
-
-        document_footer = '\n\n----------\n\n'
-        document_content_array = [ it["content"] for it in group_filtered_es_result[key_file_id] ]
-        document_content = (
+      document_footer = '\n\n----------\n\n'
+      document_content_array = [it["content"] for it in group_filtered_es_result[key_file_id]]
+      document_content = (
 """
 
 ...
@@ -734,7 +763,7 @@ async def generator_test_bot_llm_ask_question(
 """.join(document_content_array)
 
 )
-        document_content = f"""
+      document_content = f"""
 
 ...
 
@@ -744,9 +773,9 @@ async def generator_test_bot_llm_ask_question(
 
 """
 
-        aggregated_context.append(document_header)
-        aggregated_context.append(document_content)
-        aggregated_context.append(document_footer)
+      aggregated_context.append(document_header)
+      aggregated_context.append(document_content)
+      aggregated_context.append(document_footer)
     
     if retrieval_enabled:
       prompt = "".join([
@@ -759,9 +788,10 @@ async def generator_test_bot_llm_ask_question(
     else:
       prompt = data["question"]
     
-    suggested_token = 8192
+    suggested_token = 2048
     prompt_token = math.ceil( len(prompt) * 1.6 )
-    input_llm_max_token = data["llm_max_token"] if "llm_max_token" in data else 0
+    input_llm_max_token = data["llm_max_token"] if "llm_max_token" in data else suggested_token
+    maximum_output_tokens = int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "4096"))
     
     print({
       "suggested_token": suggested_token,
@@ -769,7 +799,7 @@ async def generator_test_bot_llm_ask_question(
       "input_llm_max_token": input_llm_max_token,
     })
     
-    llm_max_token = max(input_llm_max_token, suggested_token, prompt_token)
+    llm_max_token = max(1, min(int(input_llm_max_token or suggested_token), maximum_output_tokens))
 
     vo_llm = LLMVoAskQuestion(
       prompt = prompt,
@@ -812,9 +842,6 @@ async def generator_test_bot_llm_ask_question(
     else:
       llm_answer_result = None
 
-    is_busy = False
-
-
     add_log_apillm(
       question = data["question"] if "question" in data else None,
       index_name = data["index_name"],
@@ -837,14 +864,15 @@ async def generator_test_bot_llm_ask_question(
       "suggested_token": suggested_token,
       "prompt_token": prompt_token,
       "input_llm_max_token": input_llm_max_token,
-      "prompt": prompt,
       "retrieval_enabled": retrieval_enabled,
+      "index_readiness": {
+        "has_unindexed_files": data.get("_unindexed_file_count", 0) > 0,
+        "message": "Some files have not been indexed yet" if data.get("_unindexed_file_count", 0) > 0 else None,
+      },
       "group_filtered_es_result_count": len(group_filtered_es_result),
       "filtered_es_result_count": len(filtered_es_result),
       "es_result_count": len(es_result),
       "group_filtered_es_result": group_filtered_es_result,
-      "filtered_es_result": filtered_es_result,
-      "es_result": es_result,
     }
 
     if is_streaming:
@@ -857,7 +885,6 @@ async def generator_test_bot_llm_ask_question(
 
     
   except Exception as e:
-    is_busy = False
     raise e
 
 
@@ -889,7 +916,3 @@ def _build_emit_to_uid(loop, stream_queue = None):
 
   return emit
   
-
-
-
-

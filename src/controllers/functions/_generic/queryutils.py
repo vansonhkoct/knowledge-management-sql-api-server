@@ -1,9 +1,16 @@
 import traceback
+import os
 from fastapi import APIRouter, File, UploadFile, Form, Request
 from fastapi import HTTPException
 
 from tortoise.expressions import Q
 from tortoise.models import Model
+
+
+def render_debug_sql(query):
+  if os.getenv("APP_ENV", "development").lower() == "production":
+    return None
+  return query.sql()
 
 
 async def fetch_paginated(
@@ -25,11 +32,7 @@ async def fetch_paginated(
         .count()
     )
 
-    tsql = (
-      model
-        .filter(Q(**filters))
-        .sql()
-    )
+    tsql = render_debug_sql(model.filter(Q(**filters)))
 
     return items, total_count, tsql
 
@@ -74,6 +77,8 @@ async def wrapped_api_task(
       "data": data,
     }
   
+  except HTTPException:
+    raise
   except Exception as e:
     stacktrace = traceback.format_exc()
     raise HTTPException(
@@ -85,8 +90,6 @@ async def wrapped_api_task(
       }
     )
     
-
-
 
 
 

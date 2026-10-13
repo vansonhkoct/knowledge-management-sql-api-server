@@ -9,7 +9,6 @@ Tortoise.init_models(models_paths=[
 
 KMRole = None
 KMCategory = None
-KMPermission = None
 KMFile = None
 KMAIModelEndpoint = None
 KMParty = None
@@ -20,4 +19,3 @@ KMUserRequest = None
 KMChat = None
 KMChatMessage = None
 KMChatMessageFeedback = None
-
